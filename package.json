@@ -9,7 +9,7 @@
     "test:legacy": "node --test tests/*.test.cjs tests/*.test.mjs",
     "check": "node scripts/check.mjs",
     "benchmark:preprocess": "node scripts/benchmark-preprocess.mjs",
-    "test:live": "node --env-file-if-exists=.env tests/codex-smoke.mjs",
+    "test:live": "node scripts/check-quarterly-ai-live.mjs --live",
     "test:quarterly": "node --test tests/quarterly-*.test.mjs"
   },
   "engines": {
