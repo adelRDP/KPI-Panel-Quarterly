@@ -270,7 +270,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         const quarterRoute=path.match(/^\/api\/org\/quarters\/(14\d{2}-Q[1-4])$/);
         const quarterProgress=path.match(/^\/api\/org\/quarters\/(14\d{2}-Q[1-4])\/progress$/);
         if(quarterProgress&&req.method==='GET')return send(res,200,organization.quarterProgress(actor,quarterProgress[1],url.searchParams.get('period')));
-        if(quarterRoute&&req.method==='GET')return send(res,200,organization.quarterTeam(actor,quarterRoute[1]));
+        if(quarterRoute&&req.method==='GET')return store.withReadCache(()=>send(res,200,organization.quarterTeam(actor,quarterRoute[1])));
         if(path==='/api/org/evaluations'&&req.method==='GET')return send(res,200,organization.listEvaluations(actor));
         const evaluationApproval=path.match(/^\/api\/org\/evaluations\/([\w-]+)\/approval$/);
         if(evaluationApproval&&req.method==='POST')return send(res,200,organization.approveQuarter(actor,evaluationApproval[1],JSON.parse((await body(req)).toString('utf8'))));

@@ -4,6 +4,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {once} from 'node:events';
+import {createRequire} from 'node:module';
 import {openStore} from '../backend/store.mjs';
 import {createWorkflow,periodBounds} from '../backend/quarterly-workflow.mjs';
 import {createOrganizationWorkflow} from '../backend/organization-workflow.mjs';
@@ -12,7 +13,10 @@ import {roleReply} from './ai-role-fixture.mjs';
 import {createActivityHumanReview,activityHumanFinal} from '../backend/activity-human-review.mjs';
 import {submissionQuota} from '../backend/score-rules.mjs';
 import {sha256} from '../backend/evaluation.mjs';
+import {createLocalAccounts} from '../backend/local-accounts.mjs';
 const q='1404-Q3';
+const XLSX=createRequire(import.meta.url)('../src/vendor/xlsx.full.min.js');
+const exportRows=(org,actor)=>{const book=XLSX.read(org.finalExcel(actor,q).data,{type:'buffer'});return XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]],{header:1});};
 function fixture(t,{routine=false}={}){
  const root=mkdtempSync(join(tmpdir(),'quarter-integration-')),store=openStore(root),servers=[];t.after(async()=>{for(const server of servers){server.closeAllConnections();await new Promise(r=>server.close(r));}store.close();rmSync(root,{recursive:true,force:true});});
  for(const id of ['u','v'])store.put('org-unit',{id,name:id});
@@ -38,14 +42,31 @@ test('quarterly draft passes AI fixture and manager/admin approval into one assi
  assert.equal(acts[0].dueDate,new Date(Date.parse(periodBounds(q).end+'T00:00:00Z')-86400000).toISOString().slice(0,10));
  assert.throws(()=>org.saveDesignDraft(manager,{...input,tasks:[{...input.tasks[0],dueDate:periodBounds(q).end}]}),{status:409});
 });
+
+test('final Excel uses frozen employee identity after a later-quarter transfer',t=>{
+ const {store,w,org,hr,manager}=fixture(t);w.recordExamResult({employeeId:'e',period:q,score:100,reference:'exam'});w.saveSurvey(manager,{employeeId:'e',period:q,score:80});
+ const sent=org.submitQuarter(manager,q,'e'),locked=org.approveQuarter(hr,sent.id,{decision:'approve'}),before=exportRows(org,hr)[1];
+ const proposal=org.proposePosition(hr,{employeeId:'e',jobTitle:'سمت جدید',jobFamily:'اداری',jobLevel:'کارشناس',unitId:'v',unitName:'v',managerId:'n',duties:'تهیه گزارش جدید',hasProjects:false,baseSalary:90000000,transferDate:periodBounds('1404-Q4').start});org.reviewPosition(w.user('n'),proposal.id,{decision:'approve'});
+ const preview=org.positionCloseoutPreview(hr,proposal.id);assert.equal(preview.ready,true);org.approvePosition(hr,proposal.id,{decision:'approve',closeoutAcknowledgment:true,closeoutFingerprint:preview.fingerprint});
+ assert.equal(w.user('e').unitId,'v');store.put('workflow-user',{...store.get('e','workflow-user'),name:'نام جدید'},null);
+ assert.deepEqual(exportRows(org,hr)[1],before);assert.equal(before[2],locked.lockedSnapshot.employee.unitName);assert.equal(before[3],locked.lockedSnapshot.employee.jobTitle);
+});
+
+test('legacy exports use historical manager snapshot or explicit missing metadata, never current identity',t=>{
+ const {store,w,org,hr,manager}=fixture(t);w.recordExamResult({employeeId:'e',period:q,score:100,reference:'exam'});w.saveSurvey(manager,{employeeId:'e',period:q,score:100});
+ const sent=org.submitQuarter(manager,q,'e'),row=org.approveQuarter(hr,sent.id,{decision:'approve'}),legacy=JSON.parse(JSON.stringify(row));delete legacy.lockedSnapshot.employee;
+ store.put('quarter-evaluation',legacy,'e');assert.equal(exportRows(org,hr)[1][2],row.snapshot.employee.unitName);
+ delete legacy.snapshot.employee;store.put('quarter-evaluation',legacy,'e');const output=exportRows(org,hr)[1];assert.deepEqual(output.slice(0,4),['e','ثبت نشده در سابقه','ثبت نشده در سابقه','ثبت نشده در سابقه']);assert.equal(output[6],row.lockedSnapshot.quarterPay.earned);
+});
 test('transfer closes the old quarter slice only after scores and keeps new scores independent',t=>{
  const {store,w,org,hr,manager}=fixture(t),cutoff='2025-11-01';
  const proposal=org.proposePosition(hr,{employeeId:'e',jobTitle:'سمت جدید',jobFamily:'اداری',jobLevel:'کارشناس',unitId:'v',unitName:'v',managerId:'n',duties:'تهیه گزارش جدید',hasProjects:false,baseSalary:90000000,transferDate:cutoff});org.reviewPosition(w.user('n'),proposal.id,{decision:'approve'});
  assert.equal(org.positionCloseoutPreview(hr,proposal.id).ready,false);w.recordExamResult({employeeId:'e',period:q,score:100,reference:'exam'});w.saveSurvey(manager,{employeeId:'e',period:q,score:100});
  const preview=org.positionCloseoutPreview(hr,proposal.id);assert.equal(preview.ready,true,preview.blockers.join('\n'));
  const next=org.approvePosition(hr,proposal.id,{decision:'approve',closeoutAcknowledgment:true,closeoutFingerprint:preview.fingerprint});const frozen=structuredClone(store.list('position-closeout')[0]);
+ assert.equal(w.snapshotForSystem('e',q).finalSalary,null);assert.equal(w.snapshotForSystem('e',q).complete,false);
  assert.equal(w.snapshotForPosition('e',q,next.id).components.find(c=>c.id==='manager').score,null);w.saveSurvey(w.user('n'),{employeeId:'e',period:q,score:0});
- const combined=w.snapshotForSystem('e',q);assert.equal(combined.segments.length,2);assert.equal(combined.segments[0].end,combined.segments[1].start);assert.equal(combined.segments[0].performance,100);assert.equal(combined.segments[1].performance,50);assert.equal(combined.earned,combined.segments.reduce((n,s)=>n+s.earned,0));assert.deepEqual(store.list('position-closeout')[0],frozen);
+ const combined=w.snapshotForSystem('e',q);assert.equal(combined.finalSalary,combined.baseSalary+combined.earned);assert.equal(combined.finalSalary,261900000);assert.equal(w.snapshot(w.user('n'),'e',q).finalSalary,undefined);assert.equal(combined.segments.length,2);assert.equal(combined.segments[0].end,combined.segments[1].start);assert.equal(combined.segments[0].performance,100);assert.equal(combined.segments[1].performance,50);assert.equal(combined.earned,combined.segments.reduce((n,s)=>n+s.earned,0));assert.deepEqual(store.list('position-closeout')[0],frozen);
  assert.equal(org.quarterResult(hr,q,'e').canFinalize,true);assert.throws(()=>w.saveSurvey(manager,{employeeId:'e',period:q,score:50}),{status:403});
 });
 test('HTTP server uses quarterly workflow and an independent cookie with no demo seeding',async t=>{
@@ -53,6 +74,20 @@ test('HTTP server uses quarterly workflow and an independent cookie with no demo
  const base=`http://127.0.0.1:${server.address().port}`,res=await fetch(base+'/api/session'),s=await res.json();assert.equal(s.period.includes('-Q'),true);assert.match(res.headers.get('set-cookie'),/^quarterly-panel-session=/);assert.equal(s.accounts.length,4);
  const get=async path=>{const r=await fetch(base+path,{headers:{'x-panel-token':s.token}});return {status:r.status,data:await r.json()};};
  assert.equal((await get('/api/org/quarters/'+q)).status,200);assert.equal((await get('/api/org/evaluation-models?period='+q)).status,200);assert.equal((await get('/api/org/evaluation-models?period=1404-07')).status,400);assert.equal(f.store.list('activity').length,0);
+});
+
+test('quarter read cache preserves results, refreshes scores and locks, and isolates roles',async t=>{
+ const f=fixture(t),{w,org,hr,manager}=f,accounts=createLocalAccounts(f.store,w),password='Synthetic-Cache-Test-Password';
+ for(const id of ['a','m','n','e']){await accounts.save(hr,{userId:id,username:"cache-"+id,password});await accounts.changePassword(w.user(id),{currentPassword:password,password:password+'-changed'});}
+ const server=createPanelServer({root:process.cwd(),dataRoot:f.root,authMode:'local',autoAssessment:false,runModel:roleReply});f.servers.push(server);server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`,tokens={};
+ for(const id of ['a','m','n','e']){const response=await fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:"cache-"+id,password:password+'-changed',access:id==='a'?'admin':w.user(id).role})});assert.equal(response.status,200);tokens[id]=(await response.json()).token;}
+ const get=async id=>{const r=await fetch(base+'/api/org/quarters/'+q,{headers:{'x-panel-token':tokens[id]}});assert.equal(r.status,200);return r.json();};
+ const compare=async()=>{for(const id of ['a','m','n','e'])assert.deepEqual(await get(id),JSON.parse(JSON.stringify(org.quarterTeam(w.user(id),q))));};
+ await compare();assert.equal((await get('a'))[0].status,'incomplete');
+ w.recordExamResult({employeeId:'e',period:q,score:100,reference:'cache-test'});w.saveSurvey(manager,{employeeId:'e',period:q,score:80});await compare();assert.equal((await get('a'))[0].calculation.performance,90);
+ w.saveSurvey(manager,{employeeId:'e',period:q,score:0});await compare();assert.equal((await get('a'))[0].calculation.performance,50);
+ const sent=org.submitQuarter(manager,q,'e');org.approveQuarter(hr,sent.id,{decision:'approve'});await compare();assert.equal((await get('a'))[0].status,'locked');
+ assert.equal((await get('m'))[0].quarterPay.earned,undefined);assert.equal((await get('a'))[0].quarterPay.earned,18000000);assert.deepEqual(await get('n'),[]);
 });
 
 test('transfer waits for queued and running snapshot-based reviews even with a previous final score',t=>{
@@ -175,7 +210,7 @@ test('settlement rejects future dates, pending work and retroactive changes to a
  const sent=org.submitQuarter(manager,q,'e'),locked=org.approveQuarter(hr,sent.id,{decision:'approve'});
  plan=org.settlementPreview(hr,{employeeId:'e',settlementDate:'2025-11-01'});assert.equal(plan.ready,false);assert.ok(plan.blockers.some(s=>s.includes('فصل نهایی')));
  const quarterEnd=new Date(Date.parse(periodBounds(q).end+'T00:00:00Z')-86400000).toISOString().slice(0,10),saved=settle(f,quarterEnd);
- assert.equal(saved.earned,0);assert.equal(JSON.stringify(store.get(locked.id,'quarter-evaluation')),JSON.stringify(locked));assert.equal(org.quarterTeam(hr,q)[0].quarterPay.earned,36000000);
+ assert.equal(w.snapshotForSystem('e',q).finalSalary,w.snapshotForSystem('e',q).knownTotal);assert.equal(saved.earned,0);assert.equal(JSON.stringify(store.get(locked.id,'quarter-evaluation')),JSON.stringify(locked));assert.equal(org.quarterTeam(hr,q)[0].quarterPay.earned,36000000);
 });
 
 test('quarterly settlement preview and registration work through HTTP using only the temporary database',async t=>{

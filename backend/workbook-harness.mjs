@@ -1,5 +1,6 @@
 import {createRequire} from 'node:module';
 import {MAX_FULL_FILE_EVIDENCE_BYTES} from './evidence-limits.mjs';
+import {restrictedEvidenceField} from './evidence-privacy.mjs';
 const require=createRequire(import.meta.url);
 const XLSX=require('../src/vendor/xlsx.full.min.js');
 const {profileWorkbook}=require('../src/excel-profile.js');
@@ -35,7 +36,7 @@ export function extractWorkbookEvidence(buffer,extension){
       if(cell.f)formulas++;
       // Never expose contact/payroll/secret fields merely because full reading
       // replaced discovery. The caller fails closed before any model call.
-      if(typeof value==='string'&&(/^(?:حقوق\s*(?:پایه|خالص|ناخالص|پرداختی)|مبلغ\s*حقوق|فیش\s*حقوق|password|api[_ -]?key|access[_ -]?token|client[_ -]?secret|salary|payroll)$/iu.test(value.trim())||headerRowIds.includes(XLSX.utils.decode_cell(address).r)&&/(?:موبایل|تلفن|شماره\s*تماس|phone|mobile|telephone|contact[_ -]?number)/iu.test(value)))restricted=true;
+      if(restrictedEvidenceField(value,{header:headerRowIds.includes(XLSX.utils.decode_cell(address).r)}))restricted=true;
       const size=Buffer.byteLength(JSON.stringify(item));bytes+=size;if(bytes>MAX_FULL_FILE_EVIDENCE_BYTES||size>18000)throw Error('Workbook evidence limit');
       if(groupBytes+size>5000)flush();first??=address;last=address;group.push(item);groupBytes+=size;
     }
