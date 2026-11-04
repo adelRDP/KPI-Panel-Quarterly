@@ -1,0 +1,391 @@
+{
+  "notice": "تمام نمونه‌ها ساختگی‌اند. پذیرش ساختاری، اعتبار معنایی و مجوز مصرف سه آزمون جدا هستند.",
+  "schemaVersion": "evidence-review-v3",
+  "context": {
+    "criterionIds": [
+      "C1",
+      "C2"
+    ],
+    "levels": {
+      "C1": {
+        "C1_FULL": {
+          "status": "met",
+          "score": 100
+        }
+      },
+      "C2": {
+        "C2_HALF": {
+          "status": "partially_met",
+          "score": 50
+        }
+      }
+    },
+    "weights": {
+      "C1": 60,
+      "C2": 40
+    },
+    "evidenceHandles": [
+      "E1",
+      "E2",
+      "E3"
+    ]
+  },
+  "modelCases": [
+    {
+      "id": "valid",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "partially_met",
+            "levelId": "C2_HALF",
+            "reason": "طبق سطح مصوب، بخشی از موارد کنترل دقیق است.",
+            "evidenceRefs": [
+              "E2"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": true,
+      "expectBaseScore": 80
+    },
+    {
+      "id": "insufficient",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "insufficient",
+            "levelId": null,
+            "reason": "شاهد کافی برای دقت وجود ندارد.",
+            "evidenceRefs": [],
+            "missingEvidence": [
+              "ریز کنترل لازم برای معیار دوم"
+            ],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": true,
+      "expectBaseScore": null
+    },
+    {
+      "id": "conflicting",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "conflicting",
+            "levelId": null,
+            "reason": "دو شاهد نتایج ناسازگار دارند.",
+            "evidenceRefs": [
+              "E2",
+              "E3"
+            ],
+            "missingEvidence": [],
+            "conflicts": [
+              "E2 صحت بخشی از موارد و E3 رد همان موارد را ثبت می‌کند."
+            ]
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": true,
+      "expectBaseScore": null
+    },
+    {
+      "id": "forbidden-score",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "partially_met",
+            "levelId": "C2_HALF",
+            "reason": "طبق سطح مصوب، بخشی از موارد کنترل دقیق است.",
+            "evidenceRefs": [
+              "E2"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": [],
+        "score": 80
+      },
+      "expectSchema": false,
+      "expectSemantic": false,
+      "expectBaseScore": null
+    },
+    {
+      "id": "wrong-level-owner",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "partially_met",
+            "levelId": "C1_FULL",
+            "reason": "طبق سطح مصوب، بخشی از موارد کنترل دقیق است.",
+            "evidenceRefs": [
+              "E2"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": false,
+      "expectBaseScore": null
+    },
+    {
+      "id": "met-without-reference",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "partially_met",
+            "levelId": "C2_HALF",
+            "reason": "طبق سطح مصوب، بخشی از موارد کنترل دقیق است.",
+            "evidenceRefs": [
+              "E2"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": false,
+      "expectBaseScore": null
+    },
+    {
+      "id": "duplicate-criterion",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E1"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": false,
+      "expectBaseScore": null
+    },
+    {
+      "id": "unknown-reference",
+      "output": {
+        "summary": "خروجی بر اساس معیارهای نمونه بررسی شد.",
+        "criteria": [
+          {
+            "criterionId": "C1",
+            "status": "met",
+            "levelId": "C1_FULL",
+            "reason": "همه بخش‌های لازم در شاهد ثبت شده‌اند.",
+            "evidenceRefs": [
+              "E999"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          },
+          {
+            "criterionId": "C2",
+            "status": "partially_met",
+            "levelId": "C2_HALF",
+            "reason": "طبق سطح مصوب، بخشی از موارد کنترل دقیق است.",
+            "evidenceRefs": [
+              "E2"
+            ],
+            "missingEvidence": [],
+            "conflicts": []
+          }
+        ],
+        "observedFacts": [],
+        "limitations": []
+      },
+      "expectSchema": true,
+      "expectSemantic": false,
+      "expectBaseScore": null
+    }
+  ],
+  "numericCases": [
+    {
+      "id": "weighted-rubric",
+      "operation": "weighted",
+      "scores": [
+        100,
+        50
+      ],
+      "weights": [
+        60,
+        40
+      ],
+      "expected": 80
+    },
+    {
+      "id": "delay-once",
+      "operation": "delay",
+      "baseScore": 80,
+      "days": 2,
+      "amountPerDay": 3,
+      "cap": 10,
+      "expectedDeduction": 6,
+      "expected": 74
+    },
+    {
+      "id": "higher-rate",
+      "operation": "higher",
+      "actual": 0.9,
+      "target": 0.95,
+      "expected": 94.73684210526315,
+      "tolerance": 1e-9
+    },
+    {
+      "id": "lower-zero-actual",
+      "operation": "lower",
+      "actual": 0,
+      "target": 2,
+      "expected": 100
+    },
+    {
+      "id": "lower-above-target",
+      "operation": "lower",
+      "actual": 4,
+      "target": 2,
+      "expected": 50
+    },
+    {
+      "id": "milestones",
+      "operation": "weighted",
+      "scores": [
+        100,
+        0
+      ],
+      "weights": [
+        20,
+        80
+      ],
+      "expected": 20
+    },
+    {
+      "id": "count-no-double-penalty",
+      "operation": "higher",
+      "actual": 8,
+      "target": 10,
+      "expected": 80
+    },
+    {
+      "id": "critical-cap",
+      "operation": "critical_cap",
+      "baseScore": 80,
+      "cap": 60,
+      "expected": 60
+    }
+  ]
+}

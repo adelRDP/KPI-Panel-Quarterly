@@ -1,0 +1,23 @@
+[Unit]
+Description=KPI Quarterly Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/kpi-quarterly-panel/current
+Environment=NODE_ENV=production
+Environment=PORT=4273
+Environment=PANEL_BIND_HOST=0.0.0.0
+Environment=PANEL_PUBLIC_ORIGIN=https://quarterly.example.invalid
+Environment=PANEL_DATA_ROOT=/srv/kpi-quarterly-panel/data/processed/kpi-panel
+Environment=PANEL_UPLOAD_ROOT=/srv/kpi-quarterly-panel/data/raw/kpi-panel
+EnvironmentFile=-/srv/kpi-quarterly-panel/config/panel.env
+ExecStart=/usr/local/nvm/versions/node/v24.21.0/bin/node server.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,56 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {once} from 'node:events';
+import {openStore} from '../backend/store.mjs';
+import {createWorkflow} from '../backend/personnel-workflow.mjs';
+import {createNotificationCenter} from '../backend/notifications.mjs';
+import {createOrganizationWorkflow} from '../backend/organization-workflow.mjs';
+import {createPanelServer} from '../server.mjs';
+import {seedPeerUnitModel} from './unit-model-fixture.mjs';
+
+test('notifications are persistent, idempotent, scoped, and hide individual service votes',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'kpi-notifications-'));let store=openStore(dir),workflow=createWorkflow(store),center=createNotificationCenter(store,workflow);
+  t.after(async()=>{store.close();await rm(dir,{recursive:true,force:true});});
+  const employee=workflow.user('employee-mohammad'),manager=workflow.user('manager-ops'),service=workflow.user('employee-service-1');
+  center.publish({eventKey:'test-event',recipientIds:[employee.id,manager.id],actorId:manager.id,kind:'action',title:'بررسی جدید',view:'quarters'});
+  center.publish({eventKey:'test-event',recipientIds:[employee.id],kind:'action',title:'بررسی جدید',view:'quarters'});
+  assert.equal(center.list(employee).items.length,1);assert.equal(center.list(manager).items.length,0);
+  const notice=center.list(employee).items[0];assert.throws(()=>center.markRead(manager,notice.id),{status:404});center.markRead(employee,notice.id);assert.equal(center.list(employee).unreadCount,0);
+  const organization=createOrganizationWorkflow(store,workflow,{notifications:center});
+  seedPeerUnitModel(store);
+  const campaign=organization.createServiceCampaign(workflow.user('hr-demo'),{employeeId:service.id,period:workflow.currentPeriod,minParticipation:30});
+  assert.equal(center.list(employee).items.filter(item=>item.title==='نظرسنجی همکاران فعال شد').length,0);
+  organization.publishServiceCampaign(workflow.user('hr-demo'),campaign.id);
+  assert.equal(center.list(employee).items.filter(item=>item.title==='نظرسنجی همکاران فعال شد').length,1);
+  assert.equal(center.list(service).items.some(item=>item.title==='نظرسنجی همکاران فعال شد'),false);
+  assert.equal(center.list(workflow.user('manager-services')).items.some(item=>item.title==='نظرسنجی همکاران فعال شد'),false);
+  assert.equal(center.list(employee).items.some(item=>JSON.stringify(item).includes('respondentHash')),false);
+  organization.closeServiceCampaign(workflow.user('hr-demo'),campaign.id);
+  assert.equal(center.list(service).items.some(item=>item.title==='نظرسنجی بدون امتیاز بسته شد'),true);
+  organization.removeServiceCampaign(workflow.user('hr-demo'),campaign.id);
+  assert.equal(organization.serviceCampaigns(workflow.user('hr-demo')).some(item=>item.id===campaign.id),false);
+  store.close();store=openStore(dir);workflow=createWorkflow(store);center=createNotificationCenter(store,workflow);
+  assert.equal(center.list(workflow.user(employee.id)).items.find(item=>item.id===notice.id).readAt!==null,true);
+});
+
+test('notification HTTP API shows only the signed-in user and persists read state',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'kpi-notifications-http-'));const server=createPanelServer({dataRoot:dir});server.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));await rm(dir,{recursive:true,force:true});});
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const session=async()=>fetch(base+'/api/session').then(response=>response.json());
+  const request=(account,path,method='GET',payload)=>fetch(base+path,{method,headers:{'x-panel-token':account.token,...(payload?{'Content-Type':'application/json'}:{})},...(payload?{body:JSON.stringify(payload)}:{})});
+  const employee=await session(),startManager=await session(),manager=await(await request(startManager,'/api/session','POST',{userId:'manager-ops'})).json();
+  const survey={employeeId:employee.user.id,period:employee.period,score:91,note:'ارزیابی دوره'};
+  assert.equal((await request(manager,'/api/workflow/surveys','POST',survey)).status,201);
+  const first=await(await request(employee,'/api/notifications')).json();assert.equal(first.unreadCount,1);assert.equal(first.items[0].title,'ارزیابی مدیر ثبت شد');assert.doesNotMatch(first.items[0].description,/۹۱|91|ارزیابی دوره/);
+  const id=first.items[0].id;assert.equal((await request(manager,`/api/notifications/${id}/read`,'POST')).status,404);
+  assert.equal((await request(employee,`/api/notifications/${id}/read`,'POST')).status,200);
+  assert.equal((await(await request(employee,'/api/notifications')).json()).unreadCount,0);
+  assert.equal((await request(employee,'/api/notifications/read-all','POST')).status,200);
+  assert.equal((await(await request(manager,'/api/notifications')).json()).items.length,0);
+  assert.equal((await request(employee,'/api/notifications')).status,200);
+  assert.equal((await fetch(base+'/api/notifications')).status,403);
+});

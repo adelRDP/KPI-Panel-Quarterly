@@ -1,0 +1,29 @@
+{
+  "name": "kpi-quarterly-panel",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start-quarterly.mjs",
+    "start:supervised": "node scripts/start-quarterly.mjs",
+    "test": "node --test tests/quarterly-*.test.mjs tests/queue-index.test.mjs tests/theme-mode.test.mjs tests/panel-backup.test.mjs",
+    "test:legacy": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "benchmark:preprocess": "node scripts/benchmark-preprocess.mjs",
+    "test:live": "node --env-file-if-exists=.env tests/codex-smoke.mjs",
+    "test:quarterly": "node --test tests/quarterly-*.test.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.100",
+    "@openai/codex-sdk": "0.155.0",
+    "fast-xml-parser": "^5.11.1",
+    "fflate": "^0.8.3",
+    "mammoth": "1.12.3",
+    "pdfjs-dist": "5.4.624"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

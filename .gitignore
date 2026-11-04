@@ -1,0 +1,27 @@
+# Local credentials and machine settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.codex/
+.agents/
+
+# Dependencies, logs and generated files
+node_modules/
+.pnpm-store/
+*.log
+coverage/
+.wrangler/
+.DS_Store
+Thumbs.db
+
+# Organizational uploads and generated reports stay local
+data/raw/**
+data/processed/**
+outputs/**
+data/local/**
+.runtime/**
+
+# Local prompt review draft
+/docs/AI_PROMPT_V62_REVIEW.md

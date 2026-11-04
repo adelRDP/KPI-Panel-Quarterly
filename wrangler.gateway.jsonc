@@ -1,0 +1,8 @@
+{
+  "name": "kpi-quarterly-panel",
+  "main": "scripts/cloudflare-gateway.mjs",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false }
+}

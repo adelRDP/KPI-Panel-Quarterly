@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {openStore} from '../backend/store.mjs';
+import {createWorkflow} from '../backend/quarterly-workflow.mjs';
+const quarter='1404-Q3';
+function fixture(t){const dir=mkdtempSync(join(tmpdir(),'quarter-workflow-')),store=openStore(dir);t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true});});for(const p of [{id:'a',name:'Admin',role:'hr'},{id:'m',name:'Manager',role:'manager',unitId:'u'},{id:'e',name:'Employee',role:'personnel',unitId:'u',managerId:'m',baseSalary:60000000}])store.put('workflow-user',p);store.put('position-assignment',{id:'p',employeeId:'e',status:'published',unitId:'u',managerId:'m',baseSalary:60000000,isKpiEligible:true,hasProjects:false,effectiveFrom:'2025-09-23',effectiveTo:null,version:1},'e');store.put('workflow-policy',{id:'active-policy',version:'test',weights:{exam:50,manager:50,routine:0,project:0,peer:0}});return {store,w:createWorkflow(store)};}
+test('opening quarterly workflow never creates sample scores or accounts',t=>{const {store,w}=fixture(t);assert.equal(w.accounts().length,3);assert.equal(store.list('activity').length,0);assert.equal(store.list('exam-result').length,0);assert.equal(store.list('auth-account').length,0);assert.equal(w.snapshot(w.user('e'),'e',quarter).complete,false);});
+test('one quarterly manager score and exam produce one quarterly result; monthly writes rejected',t=>{const {store,w}=fixture(t);assert.throws(()=>w.saveSurvey(w.user('m'),{employeeId:'e',period:'1404-07',score:100}));w.saveSurvey(w.user('m'),{employeeId:'e',period:quarter,score:80});w.recordExamResult({employeeId:'e',period:quarter,score:60,reference:'exam-test'});const s=w.snapshot(w.user('e'),'e',quarter);assert.equal(s.performance,70);assert.equal(s.complete,true);assert.equal(s.ceiling,36000000);assert.equal(s.earned,25200000);assert.equal(store.list('manager-survey').length,1);assert.equal(w.snapshot(w.user('m'),'e',quarter).earned,undefined);assert.equal(w.snapshot(w.user('m'),'e',quarter).monthlySalary,undefined);});
+test('locked quarter blocks both manager changes and new exam imports',t=>{const {store,w}=fixture(t);store.put('quarter-evaluation',{employeeId:'e',quarter,status:'locked'},'e');assert.throws(()=>w.saveSurvey(w.user('m'),{employeeId:'e',period:quarter,score:100}),{status:409});assert.throws(()=>w.recordExamResult({employeeId:'e',period:quarter,score:100,reference:'x'}),{status:409});});

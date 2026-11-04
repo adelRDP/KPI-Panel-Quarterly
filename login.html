@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ورود به پنل فصلی مستقل | هلدینگ 5040</title>
+  <link rel="icon" href="src/assets/performance-panel-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="src/theme.css"><link rel="stylesheet" href="src/login.css">
+</head>
+<body>
+  <svg class="login-symbols" aria-hidden="true">
+    <symbol id="login-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3z"/></symbol>
+    <symbol id="login-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3M12 15v3"/></symbol>
+    <symbol id="login-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="login-eye-off" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="login-arrow" viewBox="0 0 24 24"><path d="M3 12h18m-7-7 7 7-7 7"/></symbol>
+  </svg>
+  <div class="login-atmosphere" aria-hidden="true"></div>
+  <main class="login-layout">
+    <section class="login-card" aria-labelledby="loginTitle">
+      <img class="login-logo" src="src/assets/kpi-analytics-emblem.png" alt="KPI ارزیابی عملکرد 5040" width="270" height="145">
+      <h1 id="loginTitle">ورود به پنل <bdi>KPI</bdi></h1>
+      <p class="login-holding">هلدینگ <bdi>5040</bdi></p>
+      <p class="login-welcome">به سیستم ارزیابی عملکرد خوش آمدید</p>
+      <form id="loginForm" method="post" action="/api/login">
+        <label class="login-access">ورود به<select name="access" id="loginAccess"><option value="main">پنل اصلی · همهٔ دسترسی‌ها</option><option value="admin">پنل ادمین</option><option value="manager">پنل مدیر</option><option value="personnel">پنل پرسنل</option></select></label>
+        <label class="login-field"><svg aria-hidden="true"><use href="#login-user"/></svg><span class="sr-only">نام کاربری</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="128" placeholder="نام کاربری" required></label>
+        <label class="login-field"><svg aria-hidden="true"><use href="#login-lock"/></svg><span class="sr-only">رمز عبور</span><input name="password" type="password" autocomplete="current-password" maxlength="512" placeholder="رمز عبور" required><button type="button" id="togglePassword" aria-label="نمایش رمز عبور" aria-pressed="false"><svg aria-hidden="true"><use href="#login-eye-off"/></svg></button></label>
+        <label class="login-remember"><input type="checkbox" name="remember">مرا به خاطر بسپار</label>
+        <p id="loginStatus" role="status" aria-live="polite"></p>
+        <button type="submit" class="login-submit"><svg aria-hidden="true"><use href="#login-arrow"/></svg><span>ورود</span></button>
+      </form>
+      <button type="button" id="loginHelp" class="login-help">فراموشی رمز عبور؟</button>
+      <p id="loginHelpText" class="login-help-text" hidden>برای دریافت حساب یا بازنشانی رمز، از مسیر امن با ادمین پنل هماهنگ کنید. رمز خود را در پیام یا گزارش کاری وارد نکنید.</p>
+    </section>
+
+  </main>
+  <script src="src/login.js"></script>
+</body>
+</html>

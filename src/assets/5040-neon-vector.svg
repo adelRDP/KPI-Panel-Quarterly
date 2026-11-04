@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="2048" height="2048" viewBox="0 0 640 640" fill="none"
+     role="img" aria-labelledby="title description">
+  <title id="title">5040 — luminous glass vector logo</title>
+  <desc id="description">Vector reconstruction of the supplied 5040 artwork: green 5 and red 0 above blue 4 and amber 0. Smooth colored glass, glowing neon rims and white numeral outlines. Transparent background. All artwork uses editable vector paths, circles, gradients and SVG filters. No embedded raster images, external assets or font dependencies.</desc>
+  <defs>
+    <clipPath id="lensClip"><circle r="123"/></clipPath>
+    <filter id="wideGlow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="10.5"/>
+    </filter>
+    <filter id="nearGlow" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4.5"/>
+    </filter>
+    <filter id="rimBloom" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="1.7"/>
+    </filter>
+    <filter id="whiteBloom" x="-20%" y="-55%" width="140%" height="210%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2.1"/>
+    </filter>
+    <filter id="letterShadow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="6.2"/>
+    </filter>
+    <linearGradient id="whiteNumerals" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="530">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".34" stop-color="#fcfdfb"/>
+      <stop offset=".65" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fafcfb"/>
+    </linearGradient>
+    <linearGradient id="upperSpecular" gradientUnits="userSpaceOnUse" x1="-121" y1="-22" x2="122" y2="-24">
+      <stop stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset=".10" stop-color="#ffffff" stop-opacity=".30"/>
+      <stop offset=".24" stop-color="#ffffff" stop-opacity=".93"/>
+      <stop offset=".44" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset=".62" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset=".80" stop-color="#ffffff" stop-opacity=".72"/>
+      <stop offset=".94" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="softRimWhite" gradientUnits="userSpaceOnUse" x1="0" y1="-123" x2="0" y2="123">
+      <stop stop-color="#ffffff" stop-opacity=".42"/>
+      <stop offset=".27" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset=".59" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".06"/>
+    </linearGradient>
+
+    <linearGradient id="greenBody" gradientUnits="userSpaceOnUse" x1="0" y1="-123" x2="0" y2="123">
+      <stop stop-color="#03f808"/>
+      <stop offset=".39" stop-color="#00d421"/>
+      <stop offset=".73" stop-color="#00ad23"/>
+      <stop offset="1" stop-color="#00a328"/>
+    </linearGradient>
+    <radialGradient id="greenSpot" gradientUnits="userSpaceOnUse" cx="-51" cy="-93" r="114">
+      <stop stop-color="#baffab" stop-opacity="0.52"/>
+      <stop offset=".25" stop-color="#baffab" stop-opacity="0.426"/>
+      <stop offset=".6" stop-color="#baffab" stop-opacity="0.120"/>
+      <stop offset="1" stop-color="#baffab" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="greenDepth" gradientUnits="userSpaceOnUse" cx="7" cy="56" r="118">
+      <stop stop-color="#006512" stop-opacity="0.2"/>
+      <stop offset=".50" stop-color="#006512" stop-opacity="0.120"/>
+      <stop offset="1" stop-color="#006512" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="greenRightShade" gradientUnits="userSpaceOnUse" x1="-123" y1="0" x2="123" y2="0">
+      <stop stop-color="#006509" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#006509" stop-opacity="0"/>
+      <stop offset=".78" stop-color="#006509" stop-opacity="0.140"/>
+      <stop offset="1" stop-color="#006509" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="greenShell" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="133">
+      <stop offset="0" stop-color="#00a827"/>
+      <stop offset=".92" stop-color="#00a827"/>
+      <stop offset=".95" stop-color="#00a827" stop-opacity=".93"/>
+      <stop offset=".975" stop-color="#00a827" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#00a827" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="greenRefraction" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="123">
+      <stop offset="0" stop-color="#00fa37" stop-opacity="0"/>
+      <stop offset=".81" stop-color="#00fa37" stop-opacity="0"/>
+      <stop offset=".87" stop-color="#00fa37" stop-opacity=".06"/>
+      <stop offset=".90" stop-color="#00fa37" stop-opacity=".24"/>
+      <stop offset=".926" stop-color="#00fa37" stop-opacity=".63"/>
+      <stop offset=".944" stop-color="#00ff8d" stop-opacity=".83"/>
+      <stop offset=".960" stop-color="#00ff8d" stop-opacity="1"/>
+      <stop offset=".979" stop-color="#06ffd0" stop-opacity="1"/>
+      <stop offset=".987" stop-color="#00ff8d" stop-opacity=".99"/>
+      <stop offset="1" stop-color="#00793b" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="greenLowerRim" gradientUnits="userSpaceOnUse" x1="-103" y1="95" x2="103" y2="95">
+      <stop stop-color="#00ff9a" stop-opacity="0"/>
+      <stop offset=".23" stop-color="#00ff9a" stop-opacity=".55"/>
+      <stop offset=".48" stop-color="#00ff9a" stop-opacity="1"/>
+      <stop offset=".71" stop-color="#00ff9a" stop-opacity=".81"/>
+      <stop offset="1" stop-color="#00ff9a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="redBody" gradientUnits="userSpaceOnUse" x1="0" y1="-123" x2="0" y2="123">
+      <stop stop-color="#ff170a"/>
+      <stop offset=".39" stop-color="#f80004"/>
+      <stop offset=".73" stop-color="#d80000"/>
+      <stop offset="1" stop-color="#ed0200"/>
+    </linearGradient>
+    <radialGradient id="redSpot" gradientUnits="userSpaceOnUse" cx="-55" cy="-89" r="103">
+      <stop stop-color="#ffa6a0" stop-opacity="0.34"/>
+      <stop offset=".25" stop-color="#ffa6a0" stop-opacity="0.279"/>
+      <stop offset=".6" stop-color="#ffa6a0" stop-opacity="0.078"/>
+      <stop offset="1" stop-color="#ffa6a0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="redDepth" gradientUnits="userSpaceOnUse" cx="5" cy="29" r="118">
+      <stop stop-color="#a50000" stop-opacity="0.14"/>
+      <stop offset=".50" stop-color="#a50000" stop-opacity="0.084"/>
+      <stop offset="1" stop-color="#a50000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="redRightShade" gradientUnits="userSpaceOnUse" x1="-123" y1="0" x2="123" y2="0">
+      <stop stop-color="#a10000" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#a10000" stop-opacity="0"/>
+      <stop offset=".78" stop-color="#a10000" stop-opacity="0.154"/>
+      <stop offset="1" stop-color="#a10000" stop-opacity="0.22"/>
+    </linearGradient>
+    <radialGradient id="redShell" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="133">
+      <stop offset="0" stop-color="#e6050a"/>
+      <stop offset=".92" stop-color="#e6050a"/>
+      <stop offset=".95" stop-color="#e6050a" stop-opacity=".93"/>
+      <stop offset=".975" stop-color="#e6050a" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#e6050a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="redRefraction" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="123">
+      <stop offset="0" stop-color="#ff2100" stop-opacity="0"/>
+      <stop offset=".81" stop-color="#ff2100" stop-opacity="0"/>
+      <stop offset=".87" stop-color="#ff2100" stop-opacity=".06"/>
+      <stop offset=".90" stop-color="#ff2100" stop-opacity=".24"/>
+      <stop offset=".926" stop-color="#ff2100" stop-opacity=".63"/>
+      <stop offset=".944" stop-color="#ff5035" stop-opacity=".83"/>
+      <stop offset=".960" stop-color="#ff5035" stop-opacity="1"/>
+      <stop offset=".979" stop-color="#ff8895" stop-opacity="1"/>
+      <stop offset=".987" stop-color="#ff5035" stop-opacity=".99"/>
+      <stop offset="1" stop-color="#e80606" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="redLowerRim" gradientUnits="userSpaceOnUse" x1="-103" y1="95" x2="103" y2="95">
+      <stop stop-color="#ff7234" stop-opacity="0"/>
+      <stop offset=".23" stop-color="#ff7234" stop-opacity=".55"/>
+      <stop offset=".48" stop-color="#ff7234" stop-opacity="1"/>
+      <stop offset=".71" stop-color="#ff7234" stop-opacity=".81"/>
+      <stop offset="1" stop-color="#ff7234" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="blueBody" gradientUnits="userSpaceOnUse" x1="0" y1="-123" x2="0" y2="123">
+      <stop stop-color="#008bff"/>
+      <stop offset=".39" stop-color="#0074ff"/>
+      <stop offset=".73" stop-color="#005eff"/>
+      <stop offset="1" stop-color="#0070ff"/>
+    </linearGradient>
+    <radialGradient id="blueSpot" gradientUnits="userSpaceOnUse" cx="-57" cy="-90" r="125">
+      <stop stop-color="#00dcff" stop-opacity="0.2"/>
+      <stop offset=".25" stop-color="#00dcff" stop-opacity="0.164"/>
+      <stop offset=".6" stop-color="#00dcff" stop-opacity="0.046"/>
+      <stop offset="1" stop-color="#00dcff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blueDepth" gradientUnits="userSpaceOnUse" cx="-16" cy="62" r="118">
+      <stop stop-color="#0020ff" stop-opacity="0.08"/>
+      <stop offset=".50" stop-color="#0020ff" stop-opacity="0.048"/>
+      <stop offset="1" stop-color="#0020ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="blueRightShade" gradientUnits="userSpaceOnUse" x1="-123" y1="0" x2="123" y2="0">
+      <stop stop-color="#0050ff" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#0050ff" stop-opacity="0"/>
+      <stop offset=".78" stop-color="#0050ff" stop-opacity="0.035"/>
+      <stop offset="1" stop-color="#0050ff" stop-opacity="0.05"/>
+    </linearGradient>
+    <radialGradient id="blueShell" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="133">
+      <stop offset="0" stop-color="#0651ed"/>
+      <stop offset=".92" stop-color="#0651ed"/>
+      <stop offset=".95" stop-color="#0651ed" stop-opacity=".93"/>
+      <stop offset=".975" stop-color="#0651ed" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#0651ed" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blueRefraction" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="123">
+      <stop offset="0" stop-color="#009aff" stop-opacity="0"/>
+      <stop offset=".81" stop-color="#009aff" stop-opacity="0"/>
+      <stop offset=".87" stop-color="#009aff" stop-opacity=".06"/>
+      <stop offset=".90" stop-color="#009aff" stop-opacity=".24"/>
+      <stop offset=".926" stop-color="#009aff" stop-opacity=".63"/>
+      <stop offset=".944" stop-color="#00fbff" stop-opacity=".83"/>
+      <stop offset=".960" stop-color="#00fbff" stop-opacity="1"/>
+      <stop offset=".979" stop-color="#00ffff" stop-opacity="1"/>
+      <stop offset=".987" stop-color="#00fbff" stop-opacity=".99"/>
+      <stop offset="1" stop-color="#0044f5" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="blueLowerRim" gradientUnits="userSpaceOnUse" x1="-103" y1="95" x2="103" y2="95">
+      <stop stop-color="#00fbff" stop-opacity="0"/>
+      <stop offset=".23" stop-color="#00fbff" stop-opacity=".55"/>
+      <stop offset=".48" stop-color="#00fbff" stop-opacity="1"/>
+      <stop offset=".71" stop-color="#00fbff" stop-opacity=".81"/>
+      <stop offset="1" stop-color="#00fbff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="amberBody" gradientUnits="userSpaceOnUse" x1="0" y1="-123" x2="0" y2="123">
+      <stop stop-color="#ffc100"/>
+      <stop offset=".39" stop-color="#ffab00"/>
+      <stop offset=".73" stop-color="#e59400"/>
+      <stop offset="1" stop-color="#f29800"/>
+    </linearGradient>
+    <radialGradient id="amberSpot" gradientUnits="userSpaceOnUse" cx="-54" cy="-86" r="119">
+      <stop stop-color="#ffec00" stop-opacity="0.35"/>
+      <stop offset=".25" stop-color="#ffec00" stop-opacity="0.287"/>
+      <stop offset=".6" stop-color="#ffec00" stop-opacity="0.081"/>
+      <stop offset="1" stop-color="#ffec00" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="amberDepth" gradientUnits="userSpaceOnUse" cx="5" cy="35" r="118">
+      <stop stop-color="#bb6800" stop-opacity="0.19"/>
+      <stop offset=".50" stop-color="#bb6800" stop-opacity="0.114"/>
+      <stop offset="1" stop-color="#bb6800" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="amberRightShade" gradientUnits="userSpaceOnUse" x1="-123" y1="0" x2="123" y2="0">
+      <stop stop-color="#b57600" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#b57600" stop-opacity="0"/>
+      <stop offset=".78" stop-color="#b57600" stop-opacity="0.133"/>
+      <stop offset="1" stop-color="#b57600" stop-opacity="0.19"/>
+    </linearGradient>
+    <radialGradient id="amberShell" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="133">
+      <stop offset="0" stop-color="#e68d00"/>
+      <stop offset=".92" stop-color="#e68d00"/>
+      <stop offset=".95" stop-color="#e68d00" stop-opacity=".93"/>
+      <stop offset=".975" stop-color="#e68d00" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#e68d00" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="amberRefraction" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="123">
+      <stop offset="0" stop-color="#ffb800" stop-opacity="0"/>
+      <stop offset=".81" stop-color="#ffb800" stop-opacity="0"/>
+      <stop offset=".87" stop-color="#ffb800" stop-opacity=".06"/>
+      <stop offset=".90" stop-color="#ffb800" stop-opacity=".24"/>
+      <stop offset=".926" stop-color="#ffb800" stop-opacity=".63"/>
+      <stop offset=".944" stop-color="#fffd07" stop-opacity=".83"/>
+      <stop offset=".960" stop-color="#fffd07" stop-opacity="1"/>
+      <stop offset=".979" stop-color="#ffff83" stop-opacity="1"/>
+      <stop offset=".987" stop-color="#fffd07" stop-opacity=".99"/>
+      <stop offset="1" stop-color="#fa8b00" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="amberLowerRim" gradientUnits="userSpaceOnUse" x1="-103" y1="95" x2="103" y2="95">
+      <stop stop-color="#ffff19" stop-opacity="0"/>
+      <stop offset=".23" stop-color="#ffff19" stop-opacity=".55"/>
+      <stop offset=".48" stop-color="#ffff19" stop-opacity="1"/>
+      <stop offset=".71" stop-color="#ffff19" stop-opacity=".81"/>
+      <stop offset="1" stop-color="#ffff19" stop-opacity="0"/>
+    </linearGradient>
+    <path id="numeral-5" fill-rule="evenodd" d="M 121.7,111.9 H 211.7 V 141.5 H 150.8 L 148.3,167.5 C 156.4,164.8 163.8,163.8 171.3,164.0 C 186.8,164.0 197.7,168.9 206.4,178.5 C 214.9,187.8 219.0,199.1 219.0,212.2 C 219.0,226.7 213.3,238.3 202.6,247.1 C 190.4,257.5 175.9,262.4 158.0,262.4 C 137.8,262.4 120.6,256.2 105.4,244.5 L 121.7,219.0 C 132.6,228.4 143.3,234.2 156.5,234.2 C 165.2,234.2 171.5,232.1 176.7,226.9 C 181.1,222.6 183.1,217.5 183.1,211.9 C 183.1,198.4 173.0,190.0 158.1,190.0 C 148.5,190.0 140.5,192.0 131.6,196.3 L 115.5,190.8 Z"/>
+    <path id="numeral-0top" fill-rule="evenodd" d="M 426.4,109.3 C 444.0,109.3 457.8,115.4 468.1,127.1 C 481.6,142.4 488.4,162.8 488.4,186.7 C 488.4,211.8 481.5,232.3 468.5,247.0 C 458.1,258.2 444.3,263.3 426.3,263.3 C 408.3,263.3 394.5,258.1 384.0,246.6 C 371.0,232.1 364.1,211.5 364.1,186.6 C 364.1,162.2 371.0,141.2 384.5,126.2 C 394.7,114.7 408.9,109.3 426.4,109.3 Z M 426.3,137.8 C 418.2,137.8 412.3,142.4 408.1,151.0 C 403.5,160.4 401.6,172.1 401.6,186.5 C 401.6,201.8 403.9,214.2 408.4,222.3 C 412.5,230.6 418.6,234.9 426.4,234.9 C 434.6,234.9 440.4,230.4 444.5,221.9 C 448.7,213.2 450.8,201.2 450.8,186.5 C 450.8,171.9 448.7,159.7 444.6,151.2 C 440.4,142.3 434.1,137.8 426.3,137.8 Z"/>
+    <path id="numeral-4" fill-rule="evenodd" d="M 162.7,368.5 H 207.2 V 454.5 H 226.8 V 482.2 H 207.2 V 515.9 H 171.7 V 482.2 H 102.5 V 452.9 Z M 171.7,400.0 L 135.9,454.5 H 171.7 Z"/>
+    <path id="numeral-0bottom" fill-rule="evenodd" d="M 427.0,366.8 C 444.8,366.8 458.5,372.5 468.9,384.3 C 481.3,398.6 487.4,418.1 487.4,442.9 C 487.4,468.0 481.0,488.1 468.1,502.2 C 457.5,513.8 443.7,519.2 426.5,519.2 C 409.5,519.2 395.9,513.7 385.4,502.4 C 372.7,488.5 366.3,468.1 366.3,443.1 C 366.3,418.2 372.6,398.5 385.4,384.1 C 395.9,372.4 409.6,366.8 427.0,366.8 Z M 426.8,395.3 C 418.8,395.3 412.8,399.6 408.8,408.1 C 404.2,417.2 402.6,429.1 402.6,443.2 C 402.6,458.1 404.7,470.1 409.0,478.4 C 413.2,487.1 419.2,491.2 426.6,491.2 C 434.6,491.2 440.4,486.9 444.7,478.2 C 448.8,469.5 450.9,457.8 450.9,443.2 C 450.9,428.7 448.8,416.7 444.6,408.2 C 440.4,399.7 434.5,395.3 426.8,395.3 Z"/>
+    <path id="topArc" d="M -119.85,-16.0 A 120.91,120.91 0 0 1 119.85,-16.0"/>
+    <path id="bottomArc" d="M -104.2,61.7 A 121.1,121.1 0 0 0 104.2,61.7"/>
+  </defs>
+  <g id="neon-halos" aria-hidden="true">
+    <g transform="translate(190 190)">
+      <circle r="124.2" stroke="#0dff15" stroke-width="10" opacity=".49" filter="url(#wideGlow)"/>
+      <circle r="123.6" stroke="#0dff15" stroke-width="7.3" opacity=".75" filter="url(#nearGlow)"/>
+      <circle r="133" fill="url(#greenShell)"/>
+      <circle r="122.8" stroke="#00ff64" stroke-width="4" opacity=".76" filter="url(#rimBloom)"/>
+    </g>
+    <g transform="translate(450 190)">
+      <circle r="124.2" stroke="#ff0900" stroke-width="10" opacity=".49" filter="url(#wideGlow)"/>
+      <circle r="123.6" stroke="#ff0900" stroke-width="7.3" opacity=".75" filter="url(#nearGlow)"/>
+      <circle r="133" fill="url(#redShell)"/>
+      <circle r="122.8" stroke="#ff1609" stroke-width="4" opacity=".76" filter="url(#rimBloom)"/>
+    </g>
+    <g transform="translate(190 450)">
+      <circle r="124.2" stroke="#0047ff" stroke-width="10" opacity=".49" filter="url(#wideGlow)"/>
+      <circle r="123.6" stroke="#0047ff" stroke-width="7.3" opacity=".75" filter="url(#nearGlow)"/>
+      <circle r="133" fill="url(#blueShell)"/>
+      <circle r="122.8" stroke="#009dff" stroke-width="4" opacity=".76" filter="url(#rimBloom)"/>
+    </g>
+    <g transform="translate(450 450)">
+      <circle r="124.2" stroke="#ffad00" stroke-width="10" opacity=".49" filter="url(#wideGlow)"/>
+      <circle r="123.6" stroke="#ffad00" stroke-width="7.3" opacity=".75" filter="url(#nearGlow)"/>
+      <circle r="133" fill="url(#amberShell)"/>
+      <circle r="122.8" stroke="#ffcf00" stroke-width="4" opacity=".76" filter="url(#rimBloom)"/>
+    </g>
+  </g>
+  <g id="green-glass" transform="translate(190 190)">
+    <circle r="123" fill="url(#greenBody)"/>
+    <g clip-path="url(#lensClip)">
+      <circle r="123" fill="url(#greenSpot)"/>
+      <circle r="123" fill="url(#greenDepth)"/>
+      <circle r="123" fill="url(#greenRightShade)"/>
+      <circle r="123" fill="url(#greenRefraction)"/>
+      <circle r="121.2" stroke="url(#softRimWhite)" stroke-width="1.1"/>
+    </g>
+    <use xlink:href="#bottomArc" stroke="url(#greenLowerRim)" stroke-width="4.8" opacity=".7" filter="url(#rimBloom)"/>
+    <use xlink:href="#bottomArc" stroke="url(#greenLowerRim)" stroke-width="1.3" opacity=".45"/>
+    <use xlink:href="#topArc" transform="scale(1 0.985)" stroke="url(#upperSpecular)" stroke-width="6.4" opacity=".46" filter="url(#whiteBloom)"/>
+    <use xlink:href="#topArc" transform="scale(1 0.985)" stroke="url(#upperSpecular)" stroke-width="2.8" stroke-linecap="round"/>
+    <g id="green-numeral" transform="translate(-167.4 -184.3)">
+      <use xlink:href="#numeral-5" fill="#000000" opacity="0.2" transform="translate(0 5.5)" filter="url(#letterShadow)"/>
+      <use xlink:href="#numeral-5" fill="url(#whiteNumerals)"/>
+    </g>
+  </g>
+  <g id="red-glass" transform="translate(450 190)">
+    <circle r="123" fill="url(#redBody)"/>
+    <g clip-path="url(#lensClip)">
+      <circle r="123" fill="url(#redSpot)"/>
+      <circle r="123" fill="url(#redDepth)"/>
+      <circle r="123" fill="url(#redRightShade)"/>
+      <circle r="123" fill="url(#redRefraction)"/>
+      <circle r="121.2" stroke="url(#softRimWhite)" stroke-width="1.1"/>
+    </g>
+    <use xlink:href="#bottomArc" stroke="url(#redLowerRim)" stroke-width="4.8" opacity=".7" filter="url(#rimBloom)"/>
+    <use xlink:href="#bottomArc" stroke="url(#redLowerRim)" stroke-width="1.3" opacity=".45"/>
+    <use xlink:href="#topArc" transform="scale(1 0.985)" stroke="url(#upperSpecular)" stroke-width="6.4" opacity=".46" filter="url(#whiteBloom)"/>
+    <use xlink:href="#topArc" transform="scale(1 0.985)" stroke="url(#upperSpecular)" stroke-width="2.8" stroke-linecap="round"/>
+    <g id="red-numeral" transform="translate(-427.4 -184.3)">
+      <use xlink:href="#numeral-0top" fill="#000000" opacity="0.25" transform="translate(0 5.5)" filter="url(#letterShadow)"/>
+      <use xlink:href="#numeral-0top" fill="url(#whiteNumerals)"/>
+    </g>
+  </g>
+  <g id="blue-glass" transform="translate(190 450)">
+    <circle r="123" fill="url(#blueBody)"/>
+    <g clip-path="url(#lensClip)">
+      <circle r="123" fill="url(#blueSpot)"/>
+      <circle r="123" fill="url(#blueDepth)"/>
+      <circle r="123" fill="url(#blueRightShade)"/>
+      <circle r="123" fill="url(#blueRefraction)"/>
+      <circle r="121.2" stroke="url(#softRimWhite)" stroke-width="1.1"/>
+    </g>
+    <use xlink:href="#bottomArc" stroke="url(#blueLowerRim)" stroke-width="4.8" opacity=".7" filter="url(#rimBloom)"/>
+    <use xlink:href="#bottomArc" stroke="url(#blueLowerRim)" stroke-width="1.3" opacity=".45"/>
+    <use xlink:href="#topArc" transform="scale(1 1.0)" stroke="url(#upperSpecular)" stroke-width="6.4" opacity=".46" filter="url(#whiteBloom)"/>
+    <use xlink:href="#topArc" transform="scale(1 1.0)" stroke="url(#upperSpecular)" stroke-width="2.8" stroke-linecap="round"/>
+    <g id="blue-numeral" transform="translate(-167.4 -444.6)">
+      <use xlink:href="#numeral-4" fill="#000000" opacity="0.3" transform="translate(0 5.5)" filter="url(#letterShadow)"/>
+      <use xlink:href="#numeral-4" fill="url(#whiteNumerals)"/>
+    </g>
+  </g>
+  <g id="amber-glass" transform="translate(450 450)">
+    <circle r="123" fill="url(#amberBody)"/>
+    <g clip-path="url(#lensClip)">
+      <circle r="123" fill="url(#amberSpot)"/>
+      <circle r="123" fill="url(#amberDepth)"/>
+      <circle r="123" fill="url(#amberRightShade)"/>
+      <circle r="123" fill="url(#amberRefraction)"/>
+      <circle r="121.2" stroke="url(#softRimWhite)" stroke-width="1.1"/>
+    </g>
+    <use xlink:href="#bottomArc" stroke="url(#amberLowerRim)" stroke-width="4.8" opacity=".7" filter="url(#rimBloom)"/>
+    <use xlink:href="#bottomArc" stroke="url(#amberLowerRim)" stroke-width="1.3" opacity=".45"/>
+    <use xlink:href="#topArc" transform="scale(1 1.0)" stroke="url(#upperSpecular)" stroke-width="6.4" opacity=".46" filter="url(#whiteBloom)"/>
+    <use xlink:href="#topArc" transform="scale(1 1.0)" stroke="url(#upperSpecular)" stroke-width="2.8" stroke-linecap="round"/>
+    <g id="amber-numeral" transform="translate(-427.4 -444.6)">
+      <use xlink:href="#numeral-0bottom" fill="#000000" opacity="0.22" transform="translate(0 5.5)" filter="url(#letterShadow)"/>
+      <use xlink:href="#numeral-0bottom" fill="url(#whiteNumerals)"/>
+    </g>
+  </g>
+</svg>

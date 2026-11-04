@@ -1,0 +1,2 @@
+# Preserve the supplied login artwork byte-for-byte across checkouts.
+src/assets/emerald_kpi_dashboard_login.svg -text

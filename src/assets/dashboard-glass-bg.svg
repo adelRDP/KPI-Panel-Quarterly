@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" role="img" aria-label="پس‌زمینه انتزاعی شیشه‌ای روشن">
+  <defs>
+    <radialGradient id="canvasGlow" cx="50%" cy="38%" r="72%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.88"/>
+      <stop offset="0.58" stop-color="#F8FBFE" stop-opacity="0.46"/>
+      <stop offset="1" stop-color="#EFF5FA" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glassBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.7"/>
+      <stop offset="0.48" stop-color="#8BA9FB" stop-opacity="0.11"/>
+      <stop offset="1" stop-color="#37C4C1" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="glassLavender" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.74"/>
+      <stop offset="0.56" stop-color="#9D87F9" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#C17AC9" stop-opacity="0.06"/>
+    </linearGradient>
+    <filter id="softBlur" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="44"/>
+    </filter>
+    <filter id="glassShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="26" flood-color="#69708E" flood-opacity="0.045"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#EFF5FA"/>
+  <rect width="1920" height="1080" fill="url(#canvasGlow)"/>
+
+  <g opacity="0.48" filter="url(#softBlur)">
+    <ellipse cx="-40" cy="330" rx="300" ry="270" fill="#8BA9FB" fill-opacity="0.13"/>
+    <ellipse cx="1850" cy="150" rx="300" ry="250" fill="#9D87F9" fill-opacity="0.105"/>
+    <ellipse cx="1765" cy="1010" rx="350" ry="250" fill="#37C4C1" fill-opacity="0.08"/>
+    <ellipse cx="160" cy="1050" rx="370" ry="250" fill="#C17AC9" fill-opacity="0.07"/>
+  </g>
+
+  <g opacity="0.52" filter="url(#glassShadow)">
+    <circle cx="-56" cy="118" r="315" fill="url(#glassBlue)" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="3"/>
+    <circle cx="-70" cy="432" r="300" fill="url(#glassBlue)" stroke="#8BA9FB" stroke-opacity="0.12" stroke-width="3"/>
+    <path d="M-110 610 C100 648 300 760 432 918 C493 991 531 1065 558 1142 L-110 1142 Z" fill="url(#glassBlue)" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="3"/>
+
+    <circle cx="1785" cy="-30" r="265" fill="url(#glassLavender)" stroke="#FFFFFF" stroke-opacity="0.74" stroke-width="3"/>
+    <path d="M1720 95 C1870 176 1978 298 2042 438 L2042 804 C1932 723 1847 610 1784 482 C1727 365 1658 219 1720 95 Z" fill="url(#glassBlue)" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="3"/>
+    <ellipse cx="1768" cy="1038" rx="430" ry="275" fill="url(#glassLavender)" stroke="#FFFFFF" stroke-opacity="0.78" stroke-width="3"/>
+  </g>
+
+  <g fill="none" stroke-linecap="round" opacity="0.2">
+    <path d="M-60 270 C130 310 252 247 350 100" stroke="#8BA9FB" stroke-width="2"/>
+    <path d="M1512 1008 C1622 830 1780 742 2000 760" stroke="#9D87F9" stroke-width="2"/>
+  </g>
+</svg>
