@@ -28,6 +28,7 @@ import {loadDemoLogin,verifyDemoLogin} from './backend/demo-login.mjs';
 import {createAnnouncements} from './backend/announcements.mjs';
 import {createLocalAccounts,createSessionRegistry} from './backend/local-accounts.mjs';
 import {createAuthSecurity} from './backend/auth-security.mjs';
+import {createAuthThrottle} from './backend/auth-throttle.mjs';
 import {panelInstance} from './backend/panel-health.mjs';
 import {createBackupScheduler} from './backend/panel-backup.mjs';
 
@@ -42,7 +43,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   // Explicit dataRoot keeps tests isolated; normal operation follows the project data policy.
   const isolated=!!dataRoot;
   // Real local panel is gated by default. Synthetic fixtures can explicitly supply a login.
-  let loginConfig=demoLogin===false?null:demoLogin||(isolated&&authMode===undefined?null:loadDemoLogin(root));const loginAttempts=new Map();let loginInFlight=0;
+  let loginConfig=demoLogin===false?null:demoLogin||(isolated&&authMode===undefined?null:loadDemoLogin(root));
+  const loginThrottle=createAuthThrottle(),passwordThrottle=createAuthThrottle();let loginInFlight=0;
   dataRoot ||= join(root,'data','processed','kpi-panel');
   if(existsSync(join(dataRoot,'RESTORE_IN_PROGRESS')))throw Error('بازیابی این پایگاه داده کامل نشده است؛ ابتدا بازیابی سالم را تکمیل کنید.');
   uploadRoot ||= isolated?join(dataRoot,'uploads'):join(root,'data','raw','kpi-panel');
@@ -108,6 +110,12 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   const send=(res,code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
   const body=async(req,max=65536)=>{const parts=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw new Error('حجم درخواست بیش از حد مجاز است.');parts.push(chunk);}return Buffer.concat(parts);};
   const server=createServer(async(req,res)=>{
+    // Inline styles support dynamic progress/layout; executable inline scripts,
+    // third-party scripts and framing are never needed by this local panel.
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    res.setHeader('X-Frame-Options','DENY');
+    res.setHeader('Referrer-Policy','no-referrer');
+    res.setHeader('X-Content-Type-Options','nosniff');
     try {
       const host=req.headers.host||'';
       const localHost=/^(127\.0\.0\.1|localhost):\d+$/.test(host);
@@ -126,8 +134,6 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/auth/options'&&req.method==='GET')return send(res,200,{shared:authMode!=='local'&&!!loginConfig&&!loginConfig.unavailable,personal:!!localAccounts});
         if(path==='/api/login'&&req.method==='POST'){
           if(!loginConfig&&!localAccounts)return send(res,404,{error:'ورود مشترک در این نمونه فعال نیست.'});
-          const key=req.socket.remoteAddress||'local',now=Date.now(),attempt=loginAttempts.get(key);
-          if(attempt&&attempt.until>now&&attempt.count>=5){res.setHeader('Retry-After',String(Math.ceil((attempt.until-now)/1000)));return send(res,429,{error:'تلاش‌های ناموفق زیاد است؛ چند دقیقه دیگر دوباره امتحان کنید.'});}
           let input;try{input=JSON.parse((await body(req,4096)).toString('utf8'));}catch{return send(res,400,{error:'درخواست ورود معتبر نیست.'});}
           if(!input||typeof input!=='object'||Array.isArray(input))return send(res,400,{error:'درخواست ورود معتبر نیست.'});
           if(loginInFlight>=4)return send(res,429,{error:'ورودهای هم‌زمان زیاد است؛ کمی بعد تلاش کنید.'});
@@ -135,13 +141,14 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
           if(!['main','personal',...Object.keys(roles)].includes(access)||access==='main'&&authMode==='local'||access!=='main'&&!localAccounts)return send(res,400,{error:'مسیر ورود معتبر نیست.'});
           const authKind=access==='main'?'demo':'local';
           if(authKind==='demo'&&(!loginConfig||loginConfig.unavailable))return send(res,503,{error:'ورود اصلی روی سرور پیکربندی نشده است.'});
+          const attempt=loginThrottle.reserve(req.socket.remoteAddress||'local');
+          if(attempt.retryAfter){res.setHeader('Retry-After',String(attempt.retryAfter));return send(res,429,{error:'تلاش‌های ناموفق زیاد است؛ چند دقیقه دیگر دوباره امتحان کنید.'});}
           let loginUserId;loginInFlight++;try{loginUserId=authKind==='local'?await localAccounts.verify(input):verifyDemoLogin(loginConfig,input)?workflow.defaultUserId:null;if(loginUserId&&roles[access]&&workflow.user(loginUserId)?.role!==roles[access])loginUserId=null;}finally{loginInFlight--;}
           if(!loginUserId){
             authSecurity.record('login.failure',{authKind,input});
-            if(loginAttempts.size>=1000){for(const [id,row]of loginAttempts)if(row.until<=now)loginAttempts.delete(id);if(loginAttempts.size>=1000)loginAttempts.delete(loginAttempts.keys().next().value);}
-            loginAttempts.set(key,{count:attempt&&attempt.until>now?attempt.count+1:1,until:attempt&&attempt.until>now?attempt.until:now+5*60000});return send(res,401,{error:'نام کاربری یا رمز عبور نادرست است.'});
+            return send(res,401,{error:'نام کاربری یا رمز عبور نادرست است.'});
           }
-          authSecurity.record('login.success',{authKind,userId:loginUserId});loginAttempts.delete(key);if(validCookie)sessions.delete(cookie);return send(res,200,newSession(res,loginUserId,{remember:input.remember===true,authKind}));
+          attempt.release();authSecurity.record('login.success',{authKind,userId:loginUserId});if(validCookie)sessions.delete(cookie);return send(res,200,newSession(res,loginUserId,{remember:input.remember===true,authKind}));
         }
         if(path==='/api/session' && req.method==='GET'){
           if(loginConfig&&!validCookie)return send(res,401,{loginRequired:true,error:'برای ادامه وارد پنل شوید.'});
@@ -155,7 +162,16 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
           sessions.delete(sessionToken);res.setHeader('Set-Cookie',`quarterly-panel-session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${hostedOrigins.size?'; Secure':''}`);return send(res,200,{loggedOut:true});
         }
         if(session.authKind==='local'&&path==='/api/auth/password'&&req.method==='POST'){
-          await localAccounts.changePassword(actor,JSON.parse((await body(req,4096)).toString('utf8')));sessions.delete(sessionToken);return send(res,200,newSession(res,actor.id,{remember:session.remember,expires:session.expires,authKind:'local'}));
+          let input;try{input=JSON.parse((await body(req,4096)).toString('utf8'));}catch{return send(res,400,{error:'درخواست تغییر رمز معتبر نیست.'});}
+          if(!input||typeof input!=='object'||Array.isArray(input))return send(res,400,{error:'درخواست تغییر رمز معتبر نیست.'});
+          if(loginInFlight>=4){res.setHeader('Retry-After','1');return send(res,429,{error:'درخواست‌های هم‌زمان زیاد است؛ کمی بعد تلاش کنید.'});}
+          const attempt=passwordThrottle.reserve(actor.id);
+          if(attempt.retryAfter){res.setHeader('Retry-After',String(attempt.retryAfter));return send(res,429,{error:'تلاش‌های تغییر رمز زیاد است؛ چند دقیقه دیگر دوباره امتحان کنید.'});}
+          loginInFlight++;
+          try{await localAccounts.changePassword(actor,input);attempt.release();}
+          catch(error){authSecurity.record('password.change.failure',{authKind:'local',userId:actor.id});throw error;}
+          finally{loginInFlight--;}
+          sessions.delete(sessionToken);return send(res,200,newSession(res,actor.id,{remember:session.remember,expires:session.expires,authKind:'local'}));
         }
         if(session.authKind==='local'&&localAccounts?.requiresChange(actor.id))return send(res,403,{passwordChangeRequired:true,error:'پیش از ادامه، رمز موقت حساب را تغییر دهید.'});
         if(path==='/api/auth/security'&&req.method==='GET')return send(res,200,authSecurity.report(actor));

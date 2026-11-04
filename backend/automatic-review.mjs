@@ -1,3 +1,4 @@
+import {quarterlyEvidenceWindow,QUARTER_EVIDENCE_POLICY} from './quarterly-evidence-window.mjs';
 import {providerConfig} from './providers.mjs';
 import {sha256,POLICY_VERSION,finalizeReview} from './evaluation.mjs';
 import {loadFullFileEvidence,assertRawFiles,planFileParts,assessFullFile,FILE_REVIEW_VERSION,fileReviewFailureMessage,fileReadingPrompt,FILE_MODEL_TIMEOUT_MS} from './file-assessment.mjs';
@@ -16,7 +17,15 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  let stopped=false,ticking=false;
  const retention=createReviewRetention(store);
  const docs=a=>store.list('document',a.id).filter(d=>!d.archivedAt);
- const task=a=>pick(a,taskKeys);
+ const task=a=>{
+  const snapshot=pick(a,taskKeys),position=a.positionId?store.get(a.positionId,'position-assignment'):null;
+  if(/^14\d{2}-Q[1-4]$/.test(a.period||''))snapshot.evidenceWindowPolicy=QUARTER_EVIDENCE_POLICY;
+  if(/^14\d{2}-Q[1-4]$/.test(a.period||'')&&position?.status==='published'&&position.employeeId===a.ownerId){
+   const window=quarterlyEvidenceWindow(store,position,a.period);
+   if(window.importedQuarter){snapshot.assessmentStart=window.start;snapshot.assessmentEnd=window.end;}
+  }
+  return snapshot;
+ };
  const context=a=>{
   const position=a.positionId?store.get(a.positionId,'position-assignment'):null;
   const person=workflow.user(a.ownerId);

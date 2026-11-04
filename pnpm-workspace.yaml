@@ -1,0 +1,2 @@
+# Keep dependency files physically independent of the original panel.
+packageImportMethod: copy

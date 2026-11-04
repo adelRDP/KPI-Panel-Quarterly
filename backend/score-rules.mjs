@@ -1,3 +1,4 @@
+import {periodAtDate} from './quarter-period.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import PerformanceModel from '../src/performance-model.js';
 
@@ -24,7 +25,7 @@ export const ruleGroups=[
     field('delayAmount','مقدار کسر در هر مرحله',numbers([1,2,3,5,10],'امتیاز'),1),
     field('delayCap','سقف کل کسر',numbers([5,10,15,20,30,50,100],'امتیاز'),20),
     fixed('deduplicate','جلوگیری از کسر تکراری','فقط یک کسر روی نمرهٔ کیفیت هر نسخه','بازاجرای AI یا تعداد فایل‌ها کسر جدید ایجاد نمی‌کند.') ]},
-  {id:'late',title:'ارسال دیرهنگام',fields:[
+  {id:'late',title:'ارسال دیرهنگام',description:'در پنل فصلی، ثبت و اصلاح کار گذشته در همان فصل مجاز است؛ محدودیت زمانی ارسال پس از فصل اعمال می‌شود. سهمیه و قفل نتایج همچنان برقرار است.',fields:[
     field('lateMode','پس از پایان مهلت ارسال',[option('accept','پذیرش؛ کسر فقط در صورت فعال‌بودن'),option('close','بستن ارسال جدید')],'accept'),
     future('lateReview','پذیرش مشروط به بررسی انسانی','صف تأیید ارسال دیرهنگام هنوز وجود ندارد؛ این گزینه قابل فعال‌سازی نیست.'),
     future('extension','شرایط تمدید و مرجع تأیید','تمدید/بازگشایی فردی با دلیل و تأیید نیازمند گردش کار مستقل است.') ]},
@@ -133,15 +134,17 @@ export function submissionRules(store,activity,documents,{now=new Date().toISOSt
   const unique=new Set(done.map(r=>r.submissionKey||hash((r.documentHashes||[]).map(d=>[d.id,d.sha256]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))));
   const key=submissionKey(documents),alreadyCounted=unique.has(key),first=done.map(r=>r.finishedAt||r.startedAt).filter(Boolean).sort()[0];
   const submittedAt=documents.map(d=>d.createdAt).filter(Boolean).sort().at(-1)||now;
-  const eventDay=tehranDay(review?submittedAt:now);
+  const eventDay=tehranDay(review?submittedAt:now),withinQuarter=/^14\d{2}-Q[1-4]$/.test(activity.period||'')&&periodAtDate(eventDay)===activity.period;
+  // Past dates inside the same quarterly period do not close submission; quotas,
+  // delay scoring and finalized-result guards still apply. Legacy monthly rules stay intact.
   // Uploads never consume a revision. Validation of the complete delivery occurs
   // only when review is requested; failed AI runs never enter `done`.
-  if(due&&eventDay>due&&(v.lateMode==='close'||done.length&&v.afterDue==='close'))fail('مهلت ارسال/اصلاح مستند طبق قانون مؤثر پایان یافته است.',409);
+  if(!withinQuarter&&due&&eventDay>due&&(v.lateMode==='close'||done.length&&v.afterDue==='close'))fail('مهلت ارسال/اصلاح مستند طبق قانون مؤثر پایان یافته است.',409);
   if(review&&!alreadyCounted){
     const quota=submissionQuota(store,activity,{now}),reserved=store.list('review',activity.id).some(r=>['queued','running'].includes(r.status)&&r.submissionKey===key);
     if(!reserved&&quota.remaining===0)fail('سهمیهٔ تحویل این شاخص به سقف مجاز تنظیمات امتیاز رسیده است.',409);
     if(v.maxRevisions!=='unlimited'&&unique.size>Number(v.maxRevisions))fail('سهمیهٔ تحویل اصلاحی این فعالیت تکمیل شده است.',409);
-    if(first&&v.revisionDays!=='unlimited'&&ruleDaysBetween(tehranDay(first),eventDay,v.dayType)>Number(v.revisionDays))fail('مهلت اصلاح از اولین ارزیابی موفق پایان یافته است.',409);
+    if(!withinQuarter&&first&&v.revisionDays!=='unlimited'&&ruleDaysBetween(tehranDay(first),eventDay,v.dayType)>Number(v.revisionDays))fail('مهلت اصلاح از اولین ارزیابی موفق پایان یافته است.',409);
   }
   return {policy,submissionKey:key,dueDate:due,submittedAt,lateDays:due?ruleDaysBetween(due,tehranDay(submittedAt),v.dayType):0,revision:alreadyCounted?Math.max(0,unique.size-1):unique.size};
 }
