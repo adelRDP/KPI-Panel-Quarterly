@@ -6,8 +6,12 @@ import {once} from 'node:events';
 import assert from 'node:assert/strict';
 import {createPanelServer} from '../server.mjs';
 import {seedQuarterlyFixture} from '../tests/quarterly-fixture.mjs';
+import {openStore} from '../backend/store.mjs';
+import {createWorkflow} from '../backend/quarterly-workflow.mjs';
 const root=await mkdtemp(join(tmpdir(),'quarterly-browser-')),output=resolve('outputs/quarterly-browser');await mkdir(output,{recursive:true});
-seedQuarterlyFixture(join(root,'db'));
+const fixture=seedQuarterlyFixture(join(root,'db'));
+const setup=openStore(join(root,'db'));setup.put('workflow-policy',{id:'active-policy',version:'browser-test',weights:{exam:0,manager:100,routine:0,project:0,peer:0}});
+const workflow=createWorkflow(setup);workflow.saveSurvey(workflow.user('manager'),{employeeId:'employee-1',period:fixture.period,score:100});setup.close();
 const server=createPanelServer({dataRoot:join(root,'db'),uploadRoot:join(root,'uploads'),demoLogin:false,autoAssessment:false,runModel:async()=>{throw Error('Live model forbidden in UI test');}});server.listen(0,'127.0.0.1');await once(server,'listening');
 const base='http://127.0.0.1:'+server.address().port,browser=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--user-data-dir='+join(root,'profile'),'about:blank'],{windowsHide:true,stdio:'ignore'}),pause=ms=>new Promise(r=>setTimeout(r,ms));let ws;const checks=[],errors=[],failedRequests=[];
 try{
@@ -30,6 +34,12 @@ try{
   await send('Emulation.setDeviceMetricsOverride',{width:1573,height:884,deviceScaleFactor:1,mobile:false});await pause(250);const shot=await send('Page.captureScreenshot',{format:'png'});await writeFile(join(output,actor+'.png'),Buffer.from(shot.data,'base64'));
   await evaluate("document.querySelector('#periodToggle').click()");assert.equal(await evaluate("document.querySelector('#workflowMonth').closest('label').hidden"),true);await evaluate("document.querySelector('#workflowQuarter').value='4';document.querySelector('#periodForm').requestSubmit()");await pause(300);await wait('!PanelWorkflow.working');assert.match(await evaluate("document.querySelector('#workflowPeriod').value"),/-Q4$/);
  }
+ await evaluate(`(async()=>{const f=document.querySelector('#demoAccount');f.innerHTML='<option value="admin">ادمین آزمایشی</option>';f.value='admin';await f.onchange({target:f});PanelWorkflow.go('organization');})()`);await wait('!PanelWorkflow.working');await wait("document.querySelector('#settlementNames option')");
+ await evaluate(`(()=>{document.querySelector('#personnelOperation').value='settlement';document.querySelector('#personnelOperation').dispatchEvent(new Event('change'));const f=document.querySelector('#settlementForm');f.elements.employeeName.value=[...document.querySelectorAll('#settlementNames option')].find(o=>o.value.includes('پرسنل آزمایشی 1')).value;f.elements.employeeName.dispatchEvent(new Event('input'));f.elements.settlementDate.value=PanelDate.today();window.originalConfirm=window.confirm;window.confirm=text=>{window.settlementConfirmation=text;return false;};})()`);
+ await evaluate("document.querySelector('#settlementForm').onsubmit(new Event('submit',{cancelable:true}))");
+ assert.match(await evaluate('window.settlementConfirmation'),/تا پایان روز/);let proof=openStore(join(root,'db'),{readOnly:true});assert.equal(proof.list('personnel-settlement').length,0);proof.close();checks.push({actor:'admin',view:'settlement',action:'preview-cancel',passed:true});
+ await evaluate("window.confirm=()=>true;document.querySelector('#settlementForm').onsubmit(new Event('submit',{cancelable:true}))");await wait("document.querySelector('#settlementHistory').textContent.includes('پرسنل آزمایشی 1')");
+ proof=openStore(join(root,'db'),{readOnly:true});assert.equal(proof.list('personnel-settlement').length,1);assert.equal(proof.list('position-closeout').length,1);proof.close();checks.push({actor:'admin',view:'settlement',action:'confirm-lock',passed:true});await evaluate('window.confirm=window.originalConfirm');
  await writeFile(join(output,'report.json'),JSON.stringify({syntheticOnly:true,checks,errors,failedRequests},null,2));console.log(JSON.stringify({checks:checks.length,errors:errors.length,failedRequests,output}));assert.equal(errors.length,0);assert.equal(failedRequests.length,0);
 }catch(error){await writeFile(join(output,'failure.json'),JSON.stringify({error:error.stack,checks,errors,failedRequests},null,2));throw error;}
 finally{ws?.close();browser.kill();server.closeAllConnections();await new Promise(r=>server.close(r));await pause(500);await rm(root,{recursive:true,force:true,maxRetries:5,retryDelay:500});}

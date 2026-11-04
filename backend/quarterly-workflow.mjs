@@ -4,7 +4,7 @@ import {policyForPeriod} from './evaluation-settings.mjs';
 import {reviewEvidenceMatches} from './review-retention.mjs';
 import {activityHumanFinal} from './activity-human-review.mjs';
 import {assertQuarterWritable} from './quarter-lock.mjs';
-import {settlementState} from './personnel-settlement.mjs';
+import {settlementState,settlementFor} from './personnel-settlement.mjs';
 import {validateActivity} from './evaluation.mjs';
 export const currentPeriod=()=>periodAtDate();
 export const quarterMonths=q=>[requireQuarter(q)];
@@ -18,7 +18,7 @@ const publicUser=p=>p&&Object.fromEntries(['id','name','role','level','jobTitle'
 export function createWorkflow(store){
  const positionAt=(id,at=today())=>store.list('position-assignment',id).find(p=>p.status==='published'&&p.effectiveFrom<=at&&(!p.effectiveTo||p.effectiveTo>at))||null;
  const merge=(p,pos)=>p?{...p,...(pos?{level:pos.jobLevel,jobTitle:pos.jobTitle,jobFamily:pos.jobFamily,sectionId:pos.sectionId,unitId:pos.unitId,unitName:pos.unitName,managerId:pos.managerId,isKpiEligible:pos.isKpiEligible,hasProjects:pos.hasProjects,baseSalary:pos.baseSalary}:{} )}:null;
- const user=id=>{const row=store.get(id,'workflow-user');return ['personnel','manager','hr'].includes(row?.role)?settlementState(store,merge(row,positionAt(id)),today()):null;};
+ const user=id=>{const row=store.get(id,'workflow-user'),exit=settlementFor(store,id),pos=positionAt(id)||(exit?positionAt(id,exit.settlementDate):null);return ['personnel','manager','hr'].includes(row?.role)?settlementState(store,merge(row,pos),today()):null;};
  const assessmentPosition=(id,q)=>{const b=quarterBounds(q);return store.list('position-assignment',id).filter(p=>p.status==='published'&&p.effectiveFrom<b.end&&(!p.effectiveTo||p.effectiveTo>b.start)&&(q!==currentPeriod()||p.effectiveFrom<=today())).sort((a,b)=>b.effectiveFrom.localeCompare(a.effectiveFrom))[0]||null;};
  const userAt=(id,q)=>{const pos=assessmentPosition(id,q),b=quarterBounds(q),end=new Date(Date.parse(b.end+'T00:00:00Z')-86400000).toISOString().slice(0,10);return settlementState(store,merge(store.get(id,'workflow-user'),pos),end<today()?end:today());};
  const manages=(actor,p)=>actor?.role==='manager'&&p?.role==='personnel'&&actor.unitId===p.unitId;
@@ -35,7 +35,7 @@ export function createWorkflow(store){
   for(const kind of ['routine','project']){const list=assignments.filter(a=>a.kind===kind);if(list.length&&list.every(a=>Number.isInteger(a.weightPoints)&&a.weightPoints>=1&&a.weightPoints<=5)){const total=list.reduce((n,a)=>n+a.weightPoints,0);for(const a of list)a.kpiWeight=100*a.weightPoints/total;}}
   const grouped=kind=>{const list=assignments.filter(a=>a.kind===kind);return !list.length||list.some(a=>a.score===null)?null:list.reduce((n,a)=>n+a.score*(a.kpiWeight||1),0)/list.reduce((n,a)=>n+(a.kpiWeight||1),0);};
   const exam=store.list('exam-result',id).find(r=>r.period===q),survey=store.list('manager-survey',id).find(r=>r.period===q&&r.positionId===pos?.id),peer=store.list('service-survey-aggregate',id).find(r=>r.period===q&&r.positionId===pos?.id&&(!r.campaignId||!store.get(r.campaignId,'service-survey-campaign')?.removedAt));
-  const policy=policyForPeriod(store,q,null,pos?.unitId||p.unitId),hasProjects=pos?.hasProjects===true||assignments.some(a=>a.kind==='project'),salary=pos?.baseSalary??p.baseSalary,eligible=!!pos&&pos.isKpiEligible!==false;
+  const policy=policyForPeriod(store,q,null,pos?.unitId||p.unitId),hasProjects=pos?.hasProjects===true||assignments.some(a=>a.kind==='project'),salary=pos?(pos.baseSalary??p.baseSalary):0,eligible=!!pos&&pos.isKpiEligible!==false;
   const moneyMissing=eligible&&(!Number.isSafeInteger(salary)||salary<0);
   const scores={exam:exam?.score??null,manager:survey?.score??null,peer:peer?.score??null,routine:grouped('routine'),project:grouped('project')};
   const calculation=calculateQuarterSlice({quarter:q,start,end,monthlySalary:Number.isSafeInteger(salary)&&salary>=0?salary:0,policy,scores,hasProjects,eligible});

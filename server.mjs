@@ -203,6 +203,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/workflow/proposals'&&req.method==='POST')return send(res,201,workflow.submitProposal(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/positions'&&req.method==='GET')return send(res,200,organization.listPositions(actor));
         if(path==='/api/org/settlements'&&req.method==='GET')return send(res,200,organization.settlementPeople(actor));
+        if(path==='/api/org/settlements/preview'&&req.method==='POST')return send(res,200,organization.settlementPreview(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/settlements'&&req.method==='POST')return send(res,201,organization.registerSettlement(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/ai-capabilities'&&req.method==='GET')return send(res,200,organization.aiCapabilities(actor));
         const jobAnalysisRoute=path.match(/^\/api\/org\/positions\/([\w-]+)\/analysis$/);

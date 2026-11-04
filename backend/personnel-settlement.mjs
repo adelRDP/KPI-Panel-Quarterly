@@ -1,4 +1,4 @@
-// A dated HR exit, not a payroll calculation or deletion of personnel/history.
+// A dated HR exit. Quarterly financial closeouts are stored separately and immutable.
 export const settlementFor=(store,id)=>store.list('personnel-settlement',id).find(row=>row.status==='registered')||null;
 export const settledAt=(store,id,onDate)=>{const row=settlementFor(store,id);return row&&row.settlementDate<=onDate?row:null;};
 export function settlementState(store,person,onDate){

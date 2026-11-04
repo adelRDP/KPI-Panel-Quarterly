@@ -12,6 +12,7 @@ import {createJobDesignAnalysis,positionSnapshot,canonical,analysisBasis,safeTas
 import {applyStoredChanges,normalizedCriteria,stabilityHash,maxCorrectionRounds} from './alignment-stability.mjs';
 import {MONTH_COPY_VERSION,copyHash,nextDesignMonth,copyPolicySnapshot,copyMaterialFingerprint,copySourceFingerprint,copyTasksToNextMonth} from './design-month-copy.mjs';
 import {settlementFor} from './personnel-settlement.mjs';
+import {settlementPlan,SETTLEMENT_VERSION} from './quarterly-settlement.mjs';
 import {currentHumanReviewDesign} from './human-review-policy.mjs';
 import {effectiveChanges} from './analysis-consistency.mjs';
 import {quarterLocked,assertQuarterWritable} from './quarter-lock.mjs';
@@ -265,20 +266,30 @@ return {period,people:people.map(person=>{const p=workflow.assessmentPosition(pe
     role(actor,['hr']);
     return {people:store.list('workflow-user').filter(p=>p.role==='personnel').map(p=>({id:p.id,name:p.name,employeeCode:p.employeeCode||null,settlementDate:settlementFor(store,p.id)?.settlementDate||null})),settlements:store.list('personnel-settlement').map(row=>({id:row.id,employeeId:row.employeeId,employeeName:store.get(row.employeeId,'workflow-user')?.name||'—',employeeCode:store.get(row.employeeId,'workflow-user')?.employeeCode||null,settlementDate:row.settlementDate,createdAt:row.createdAt,status:row.settlementDate<=today()?'effective':'scheduled'}))};
   }
-  function registerSettlement(actor,input){
-    role(actor,['hr']);const person=employee(input.employeeId),settlementDate=date(input.settlementDate);
-    const code=personnelCode(input.employeeCode);
+  function settlementPreview(actor,input){
+    role(actor,['hr']);const person=employee(input.employeeId),settlementDate=date(input.settlementDate),code=personnelCode(input.employeeCode);
     if(code&&code!==personnelCode(person.employeeCode))fail('نام و کد پرسنلی به یک فرد تعلق ندارند.',409);
-    const published=store.list('position-assignment',person.id).filter(p=>p.status==='published');
-    if(!published.some(p=>p.effectiveFrom<=settlementDate))fail('تاریخ تسویه نباید پیش از شروع همکاری تأییدشده باشد.',409);
-    // An exit is immutable and idempotent. It cannot be undone by a new position.
+    if(settlementFor(store,person.id))fail('تسویهٔ این فرد قبلاً ثبت شده است.',409);
+    return settlementPlan(store,workflow,person.id,settlementDate,{today:today(),busy});
+  }
+  function registerSettlement(actor,input){
+    role(actor,['hr']);const person=employee(input.employeeId),settlementDate=date(input.settlementDate),code=personnelCode(input.employeeCode);
+    if(code&&code!==personnelCode(person.employeeCode))fail('نام و کد پرسنلی به یک فرد تعلق ندارند.',409);
     return store.transaction(()=>{
       const existing=settlementFor(store,person.id);
       if(existing){if(existing.settlementDate===settlementDate)return existing;fail('قبلاً برای این فرد تسویه ثبت شده است؛ تاریخ متفاوت نیازمند اصلاحیه است.',409);}
-      const activeIds=new Set([person.id,...published.map(p=>p.id),...store.list('kpi-design',person.id).map(d=>d.id),...store.list('activity').filter(a=>a.ownerId===person.id).map(a=>a.id)]);
-      if(['review','ai-design-attempt','ai-preprocess-attempt','ai-role-run'].some(kind=>store.list(kind).some(r=>['queued','running'].includes(r.status)&&(activeIds.has(r.employeeId)||activeIds.has(r.designId)||activeIds.has(r.activityId)||activeIds.has(r.activitySnapshot?.id)||activeIds.has(r.positionId)))))fail('بررسی این پرسنل در حال اجراست؛ پس از پایان بررسی تسویه را ثبت کنید.',409);
-      const at=new Date().toISOString(),saved=store.put('personnel-settlement',{employeeId:person.id,settlementDate,status:'registered',createdBy:actor.id,createdAt:at},person.id);
-      audit(actor,'personnel.settlement-registered','personnel-settlement',saved.id,{employeeId:person.id,settlementDate});
+      const plan=settlementPreview(actor,input);
+      if(!plan.ready)fail(plan.blockers.join('\n'),409);
+      if(input.closeoutAcknowledgment!==true||input.closeoutFingerprint!==plan.fingerprint)fail('پیش‌نمایش مبلغ و امتیاز تسویه را بازبینی و تأیید کنید؛ داده‌ها ممکن است تغییر کرده باشند.',409);
+      const at=new Date().toISOString(),id=randomUUID(),closeoutIds=[];
+      for(const result of plan.closeouts){
+        const row=store.put('position-closeout',{...result,version:SETTLEMENT_VERSION,employeeId:person.id,nextPositionId:null,reason:'settlement',settlementId:id,status:'locked',lockedBy:actor.id,lockedAt:at,fingerprint:plan.fingerprint},person.id);closeoutIds.push(row.id);
+        const position=store.get(result.positionId,'position-assignment');
+        store.put('position-assignment',{...position,effectiveTo:result.end,settlementId:id,events:[...(position.events||[]),{state:'settled',by:actor.id,at}]},person.id);
+        audit(actor,'position.closeout-locked','position-closeout',row.id,{positionId:result.positionId,settlementId:id,fingerprint:plan.fingerprint});
+      }
+      const saved=store.put('personnel-settlement',{id,employeeId:person.id,settlementDate,assessmentEnd:plan.end,version:SETTLEMENT_VERSION,closeoutIds,earned:plan.earned,baseSalary:plan.baseSalary,total:plan.total,fingerprint:plan.fingerprint,status:'registered',createdBy:actor.id,createdAt:at},person.id);
+      audit(actor,'personnel.settlement-registered','personnel-settlement',saved.id,{employeeId:person.id,settlementDate,assessmentEnd:plan.end,closeoutIds,version:SETTLEMENT_VERSION});
       return saved;
     });
   }
@@ -700,7 +711,10 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     return quarterlyProgress(workflow,actor,quarter,asOfPeriod);
   }
   function quarterTeam(actor,quarter){
-    const eligibleInQuarter=person=>quarterMonths(quarter).some(period=>workflow.userAt(person.id,period)?.isKpiEligible!==false)||store.list('quarter-evaluation',person.id).some(row=>row.quarter===quarter&&row.status==='locked');
+    const eligibleInQuarter=person=>{
+      const position=workflow.assessmentPosition(person.id,quarter),exit=settlementFor(store,person.id),bounds=periodBounds(quarter);
+      return !!(position&&position.isKpiEligible!==false&&(!exit||nextDate(exit.settlementDate)>bounds.start))||store.list('position-closeout',person.id).some(r=>r.status==='locked'&&r.months.some(m=>m.period===quarter))||store.list('quarter-evaluation',person.id).some(row=>row.quarter===quarter&&row.status==='locked');
+    };
     const resultFor=id=>{
       const evaluation=store.list('quarter-evaluation',id).find(row=>row.quarter===quarter&&['hr_review','locked'].includes(row.status));
       if(!evaluation)return quarterResult(actor,quarter,id);
@@ -820,5 +834,5 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     return store.get(id,'exam-import-batch');
   }
 
-  return {positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
+  return {positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,settlementPreview,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
 }

@@ -143,11 +143,17 @@
   const shiftDay=(day,count)=>new Date(Date.parse(day+'T12:00:00Z')+count*86400000).toISOString().slice(0,10);
   function taskDue(task,selectedPeriod,now=new Date()){
     try{
-      if(task.dueDate){const day=/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)&&Number.isFinite(Date.parse(task.dueDate))?task.dueDate:window.PanelDate.toGregorian(task.dueDate);return {day,time:null,recurring:false};}
+      if(task.dueDate){const day=/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)&&Number.isFinite(Date.parse(task.dueDate))?task.dueDate:window.PanelDate.toGregorian(task.dueDate);return {day,time:task.timeLimit?.time||null,recurring:false};}
       const limit=task.timeLimit;if(!limit?.time)return null;
       const [year,season]=selectedPeriod.split('-Q').map(Number),month=(season-1)*3+1,start=window.PanelDate.toGregorian(`${year}/${month}/1`),next=window.PanelDate.toGregorian(`${season===4?year+1:year}/${season===4?1:month+3}/1`),end=shiftDay(next,-1),today=isoDay(now);
       let day=today<start?start:today>end?end:today;
-      if(task.frequency==='فصلی')day=end;else if(task.frequency==='ماهانه')day=window.PanelDate.toGregorian(`${year}/${month}/${limit.dayOfMonth}`);
+      if(task.frequency==='فصلی')day=end;else if(task.frequency==='ماهانه'){
+        const requested=Number(limit.dayOfMonth);if(!Number.isInteger(requested)||requested<1||requested>31)return null;
+        const [dueYear,dueMonth]=window.PanelDate.input(day).split('/').map(Number);
+        const nextMonth=window.PanelDate.toGregorian(`${dueMonth===12?dueYear+1:dueYear}/${dueMonth===12?1:dueMonth+1}/1`);
+        const lastDay=Number(window.PanelDate.input(shiftDay(nextMonth,-1)).split('/')[2]);
+        day=window.PanelDate.toGregorian(`${dueYear}/${dueMonth}/${Math.min(requested,lastDay)}`);
+      }
       else if(task.frequency==='هفتگی'){
         if(!Number.isInteger(limit.dayOfWeek))return null;
         const weekday=(new Date(day+'T12:00:00Z').getUTCDay()+1)%7,delta=(weekday-limit.dayOfWeek+7)%7;
