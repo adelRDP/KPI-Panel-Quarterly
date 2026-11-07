@@ -215,14 +215,18 @@
     const rows=quarterChartComponents(snapshot),scored=rows.filter(c=>Number.isFinite(c.score)).length,pending=rows.length-scored;
     const scoreLabel=c=>Number.isFinite(c.score)?percent(c.score):'در انتظار';
     const heading=escape(quarterLabel(q.quarter||period));
+    const assignments=[...new Map((snapshot?.assignments||[]).filter(a=>!a.removedAt&&['routine','task','project'].includes(a.kind)).map(a=>[a.id,a])).values()];
+    const total=assignments.length,projects=assignments.filter(a=>a.kind==='project').length,routines=total-projects;
+    const compositionLabel=total?`${faPercent.format(total)} شاخص مصوب؛ ${faPercent.format(routines)} روتین و ${faPercent.format(projects)} پروژه‌ای`:'هنوز شاخصی برای این فصل ثبت نشده است.';
     if(!rows.length)return '<section class="panel quarter-chart-empty"><h2>نمودار عملکرد فصل</h2><p>مؤلفه‌ای با سهم مثبت برای این فصل وجود ندارد.</p></section>';
     return `<div class="quarter-charts">
-      <section class="panel quarter-component-chart" aria-labelledby="quarterComponentChartTitle">
-        <header class="quarter-chart-heading"><div><h2 id="quarterComponentChartTitle">امتیاز مؤلفه‌های فصل</h2><p>${heading} · امتیاز هر بخش از ۱۰۰</p></div><span class="quarter-chart-hint">برای مشاهدهٔ جزئیات، روی مؤلفه بزنید</span></header>
-        <div class="quarter-component-bars">${rows.map(c=>{
-          const known=Number.isFinite(c.score),value=known?Math.max(0,Math.min(100,c.score)):0;
-          return `<button type="button" class="quarter-component-row${known?'':' is-pending'}" data-quarter-component="${escape(c.id)}" aria-label="${escape(c.name+'، '+scoreLabel(c)+'؛ نمایش جزئیات')}"><span class="quarter-component-label"><span>${escape(c.name)}</span><strong>${escape(scoreLabel(c))}</strong></span><span class="quarter-component-track" role="progressbar" aria-label="${escape(c.name)}" aria-valuemin="0" aria-valuemax="100" ${known?`aria-valuenow="${value}"`:''} aria-valuetext="${escape(scoreLabel(c))}"><span style="--component-score:${value}%"></span></span></button>`;
-        }).join('')}</div>
+      <section class="panel quarter-task-chart" aria-labelledby="quarterTaskChartTitle">
+        <header class="quarter-chart-heading"><div><h2 id="quarterTaskChartTitle">نمای کلی شاخص‌های فصل</h2><p>${heading}</p></div></header>
+        <div class="quarter-task-summary">
+          <div class="quarter-task-donut${total?'':' is-empty'}" role="img" aria-label="${escape(compositionLabel)}" style="--routine-share:${total?routines/total*100:0}%"><div><strong>${faPercent.format(total)}</strong><span>شاخص مصوب</span></div></div>
+          <dl class="quarter-task-legend"><div><dt><i class="is-routine" aria-hidden="true"></i>روتین</dt><dd>${faPercent.format(routines)}</dd></div><div><dt><i class="is-project" aria-hidden="true"></i>پروژه‌ای</dt><dd>${faPercent.format(projects)}</dd></div></dl>
+        </div>
+        <p class="quarter-chart-note">${total?'ترکیب تعداد شاخص‌ها؛ وزن و امتیاز در جزئیات عملکرد فصل نمایش داده می‌شوند.':'هنوز شاخصی برای این فصل ثبت نشده است.'}</p>
       </section>
       <section class="panel quarter-completion-chart" aria-labelledby="quarterCompletionChartTitle">
         <header class="quarter-chart-heading"><div><h2 id="quarterCompletionChartTitle">وضعیت ثبت امتیازها</h2><p>${heading}</p></div></header>
@@ -230,6 +234,11 @@
         <div class="quarter-completion-segments" role="group" aria-label="${escape(faPercent.format(scored)+' مؤلفه دارای امتیاز و '+faPercent.format(pending)+' مؤلفه در انتظار')}">${rows.map(c=>`<button type="button" class="quarter-completion-segment ${Number.isFinite(c.score)?'is-scored':'is-pending'}" data-quarter-component="${escape(c.id)}" title="${escape(c.name+' · '+scoreLabel(c))}" aria-label="${escape(c.name+'، '+scoreLabel(c)+'؛ نمایش جزئیات')}"></button>`).join('')}</div>
         <div class="quarter-chart-legend"><span><i class="is-scored" aria-hidden="true"></i>دارای امتیاز <b>${faPercent.format(scored)}</b></span><span><i class="is-pending" aria-hidden="true"></i>در انتظار <b>${faPercent.format(pending)}</b></span></div>
         <p class="quarter-chart-note">وضعیت ثبت امتیاز مؤلفه‌ها؛ این تعداد، امتیاز عملکرد نیست.</p>
+      </section>
+      <section id="quarterPayDetails" class="panel quarter-pay-card" aria-labelledby="quarterPayTitle">
+        <header class="quarter-chart-heading"><div><h2 id="quarterPayTitle">جزئیات دریافتی فصل</h2><p>${heading}</p></div></header>
+        <dl class="pay-breakdown">${[['حقوق ثابت',q.baseSalaryToDate],['KPI محقق‌شده',q.earned],['سقف KPI',q.ceiling],['سقف دریافتی',q.maxQuarterSalary],['حقوق نهایی',q.finalToDate]].map(([label,value])=>`<div><dt>${label}</dt><dd>${money(value)}</dd></div>`).join('')}</dl>
+        <p class="quarter-chart-note">ارقام نمایشی‌اند؛ این بخش سند پرداخت نیست.</p>
       </section>
     </div>`;
   }
@@ -249,7 +258,7 @@
       <article class="panel quarter-summary-card"><span class="quarter-summary-icon" aria-hidden="true"><svg><use href="#i-target"/></svg></span><span>سقف KPI کل دوره</span><strong>${money(q.ceiling)}</strong><small>حداکثر KPI قابل دریافت در فصل</small></article>
       <article class="panel quarter-summary-card"><span class="quarter-summary-icon" aria-hidden="true"><svg><use href="#i-banknote"/></svg></span><span>سقف دریافتی کل دوره</span><strong>${money(q.maxQuarterSalary)}</strong><small>حقوق ثابت بازه‌های این فصل + سقف KPI فصل</small></article>
       <article class="panel quarter-summary-card quarter-final-card"><div class="quarter-final-info"><div class="quarter-final-heading"><span class="quarter-summary-icon" aria-hidden="true"><svg><use href="#i-banknote"/></svg></span><h2>حقوق نهایی در این فصل</h2></div><dl class="quarter-final-breakdown"><div><dt>حقوق ثابت در این فصل</dt><dd>${money(q.baseSalaryToDate)}</dd></div><div><dt>KPI محقق‌شده</dt><dd>${money(q.earned)}</dd></div></dl></div><strong class="quarter-final-amount">${money(q.finalToDate)}</strong></article>
-    </div>${renderQuarterCharts(q)}<p class="formula-note">${q.pendingCount?'برای '+faPercent.format(q.pendingCount)+' مؤلفه هنوز امتیاز ثبت نشده است؛ مبالغ فقط از داده‌های ثبت‌شده محاسبه شده‌اند.':'مبالغ برای فصل انتخاب‌شده بر اساس داده‌های ثبت‌شده محاسبه شده‌اند.'} ارقام نمایشی‌اند.</p><section id="quarterPayDetails" class="panel settings-card"><h2>جزئیات دریافتی فصل</h2><p class="workflow-muted">ارقام نمایشی فصل تا ${escape(through)}؛ این بخش سند پرداخت نیست.</p><dl class="pay-breakdown">${[['حقوق ثابت در این فصل',q.baseSalaryToDate],['KPI محقق‌شده در این فصل',q.earned],['سقف KPI کل فصل',q.ceiling],['سقف دریافتی کل فصل',q.maxQuarterSalary],['حقوق نهایی در این فصل',q.finalToDate]].map(([label,value])=>`<div><dt>${label}</dt><dd>${money(value)}</dd></div>`).join('')}</dl></section>`;
+    </div>${renderQuarterCharts(q)}`;
   }
   $('#view-dashboard .kpi-panel h2').textContent='چهار بخش امتیاز عملکرد';
   $('#view-dashboard .kpi-panel .panel-heading p').textContent='امتیاز، ضریب مؤثر، مبلغ محقق‌شده و سقف هر بخش';
