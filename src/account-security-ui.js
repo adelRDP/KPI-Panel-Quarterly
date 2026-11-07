@@ -11,14 +11,16 @@
   </div>
   <section id="accountManagement" class="panel settings-card account-security-card" hidden>
    <header class="account-section-heading"><h2>مدیریت حساب‌های ورود</h2><p>برای فرد ثبت‌شده حساب بسازید یا اطلاعات ورود او را ویرایش کنید. صاحب حساب در اولین ورود، رمز موقت را تغییر می‌دهد.</p></header>
-   <div class="account-defaults"><div><h3>تعریف گروهی حساب‌ها</h3><p>برای افراد فاقد حساب، نام کاربری و رمز موقت اختصاصی ساخته می‌شود؛ حساب‌های موجود و افراد تسویه‌شده تغییری نمی‌کنند. اطلاعات ورود در یک فایل قابل دانلود تحویل داده می‌شود.</p></div><div class="account-default-buttons"><button type="button" id="createDefaultAccounts" class="secondary-button">ایجاد حساب پیش‌فرض برای همه</button><button type="button" id="downloadDefaultAccounts" class="secondary-button" hidden>دانلود اطلاعات حساب‌های ساخته‌شده</button></div></div>
    <form id="accountProvisionForm">
-    <div class="account-fields">
+    <div class="account-provision-top">
+     <div class="account-defaults"><h3>تعریف گروهی حساب‌ها</h3><div class="account-default-buttons"><button type="button" id="createDefaultAccounts" class="secondary-button">ایجاد حساب پیش‌فرض برای همه</button><button type="button" id="downloadDefaultAccounts" class="secondary-button" hidden>دانلود اطلاعات حساب‌های ساخته‌شده</button></div><details class="account-defaults-help"><summary>راهنمای تعریف گروهی</summary><p>برای افراد فاقد حساب، نام کاربری و رمز موقت اختصاصی ساخته می‌شود؛ حساب‌های موجود و افراد تسویه‌شده تغییری نمی‌کنند. اطلاعات ورود در یک فایل قابل دانلود تحویل داده می‌شود.</p></details></div>
      <label>انتخاب فرد<select name="userId" required></select></label>
      <label>نام کاربری<input name="username" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="3" maxlength="128" placeholder="مثلاً user.name" required></label>
-     <label class="account-field-wide">رمز موقت<input name="password" type="password" dir="ltr" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="accountPasswordHint"><small id="accountPasswordHint">برای حساب جدید، رمز ۱۲ تا ۱۲۸ نویسه‌ای تعیین کنید؛ هنگام ویرایش، برای حفظ رمز فعلی خالی بگذارید.</small></label>
     </div>
-    <div class="account-form-actions"><label class="account-enabled"><input type="checkbox" name="enabled" checked><span>حساب فعال باشد</span></label><button type="submit" class="primary-button">ذخیره حساب</button></div>
+    <div class="account-provision-bottom">
+     <label>رمز موقت<input name="password" type="password" dir="ltr" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="accountPasswordHint"><small id="accountPasswordHint">برای حساب جدید، رمز ۱۲ تا ۱۲۸ نویسه‌ای تعیین کنید؛ هنگام ویرایش، برای حفظ رمز فعلی خالی بگذارید.</small></label>
+     <label class="account-enabled"><input type="checkbox" name="enabled" checked><span>حساب فعال باشد</span></label><button type="submit" class="primary-button">ذخیره حساب</button>
+    </div>
     <p class="account-delivery-note">رمز موقت را فقط از مسیر امن به صاحب حساب تحویل دهید.</p>
    </form>
    <section class="account-list-section" aria-labelledby="accountListTitle"><h3 id="accountListTitle">حساب‌های ثبت‌شده</h3><p class="account-delivery-note">رمز فعلی قابل نمایش نیست. برای تعیین رمز موقت جدید، «تغییر» را بزنید و رمز جدید را در فرم وارد و ذخیره کنید.</p><div id="accountCredentialsList"></div></section>
@@ -40,7 +42,7 @@
  downloadDefaults.onclick=downloadCredentials;
  defaultsButton.onclick=async()=>{
   if(busy||workflow()?.user?.role!=='hr')return;
-  busy=true;defaultsButton.disabled=true;provision.querySelector('button').disabled=true;const current=version;
+  busy=true;defaultsButton.disabled=true;provision.querySelector('[type=submit]').disabled=true;const current=version;
   status.textContent='در حال ساخت حساب‌های فاقد نام کاربری؛ لطفاً منتظر بمانید…';
   try{
    const result=await workflow().post('/api/auth/accounts/defaults',{});if(current!==version)return;
@@ -51,7 +53,7 @@
     try{downloadCredentials();}catch{status.textContent='حساب‌ها ساخته شدند؛ برای دریافت رمزها از دکمه دانلود اطلاعات استفاده کنید.';}
    }
    await refresh();status.textContent=result.created?result.created+' حساب ساخته شد. فایل اطلاعات ورود را نگه دارید و رمز هر فرد را فقط به خود او تحویل دهید؛ پس از خروج یا بارگذاری دوباره، رمزهای موقت در این صفحه قابل دریافت نیستند.':'همهٔ افراد واجد شرایط حساب دارند؛ حساب جدیدی ساخته نشد.';
-  }catch(error){if(current===version)status.textContent=error.message;}finally{busy=false;defaultsButton.disabled=false;provision.querySelector('button').disabled=false;}
+  }catch(error){if(current===version)status.textContent=error.message;}finally{busy=false;defaultsButton.disabled=false;provision.querySelector('[type=submit]').disabled=false;}
  };
  function selectAccount(){const row=rows.find(r=>r.userId===provision.elements.userId.value);provision.elements.username.value=row?.username||'';provision.elements.password.value='';provision.elements.enabled.checked=row?.enabled!==false;}
  provision.elements.userId.onchange=selectAccount;
@@ -72,7 +74,7 @@
  }
  function sessionChanged(){clear();nav.hidden=!workflow()?.user||workflow().demo&&!workflow().canManageAccounts;passwordForm.parentElement.hidden=workflow()?.demo!==false;management.hidden=true;if(workflow()?.mustChangePassword)status.textContent='برای ادامه استفاده از پنل، ابتدا رمز موقت را تغییر دهید.';}
  passwordForm.onsubmit=async event=>{event.preventDefault();if(busy||!passwordForm.reportValidity())return;if(passwordForm.elements.password.value!==passwordForm.elements.confirmation.value){status.textContent='تکرار رمز جدید یکسان نیست.';return;}busy=true;const button=passwordForm.querySelector('button');button.disabled=true;try{await workflow().post('/api/auth/password',{currentPassword:passwordForm.elements.currentPassword.value,password:passwordForm.elements.password.value});passwordForm.reset();status.textContent='رمز تغییر کرد؛ در حال بارگذاری دوباره…';window.location.replace('/');}catch(error){status.textContent=error.message;}finally{busy=false;button.disabled=false;}};
- provision.onsubmit=async event=>{event.preventDefault();if(busy||!provision.reportValidity())return;busy=true;const button=provision.querySelector('button'),userId=provision.elements.userId.value;button.disabled=true;try{await workflow().post('/api/auth/accounts',{userId,username:provision.elements.username.value,enabled:provision.elements.enabled.checked,...(provision.elements.password.value?{password:provision.elements.password.value}:{})});provision.elements.password.value='';if(userId===workflow().user.id&&!workflow().demo){window.location.replace('/login.html');return;}await refresh();status.textContent='حساب ذخیره شد؛ نشست‌های شخصی قبلی این فرد دیگر معتبر نیستند.';}catch(error){status.textContent=error.message;}finally{busy=false;button.disabled=false;}};
+ provision.onsubmit=async event=>{event.preventDefault();if(busy||!provision.reportValidity())return;busy=true;const button=provision.querySelector('[type=submit]'),userId=provision.elements.userId.value;button.disabled=true;try{await workflow().post('/api/auth/accounts',{userId,username:provision.elements.username.value,enabled:provision.elements.enabled.checked,...(provision.elements.password.value?{password:provision.elements.password.value}:{})});provision.elements.password.value='';if(userId===workflow().user.id&&!workflow().demo){window.location.replace('/login.html');return;}await refresh();status.textContent='حساب ذخیره شد؛ نشست‌های شخصی قبلی این فرد دیگر معتبر نیستند.';}catch(error){status.textContent=error.message;}finally{busy=false;button.disabled=false;}};
  window.addEventListener('panel:session',sessionChanged);window.addEventListener('panel:password-required',sessionChanged);window.addEventListener('panel:view',event=>{if(event.detail==='account-security')refresh();});
  window.PanelAccountSecurity={get working(){return busy;}};
 })();

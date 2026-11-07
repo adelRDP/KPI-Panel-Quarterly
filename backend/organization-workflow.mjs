@@ -1,3 +1,4 @@
+import {createPeerSurveyImport} from './peer-survey-import.mjs';
 import {quarterlyEvidenceWindow} from './quarterly-evidence-window.mjs';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { providerConfig } from './providers.mjs';
@@ -683,6 +684,9 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     }
     return {saved:true,...result};
   }
+  const peerImport=createPeerSurveyImport({store,workflow,secret:privacyConfig.value,canRespond,assertWritable:assertCampaignWritable,respondentToken,deadline:campaignDeadline,today,required:requiredResponses,complete:closeServiceCampaign,audit});
+  const importPeerResponses=(actor,input)=>peerImport.run(actor,input);
+  const listPeerImports=actor=>peerImport.list(actor);
   function closeServiceCampaign(actor,id){
     assertCampaignWritable(store.get(id,'service-survey-campaign'));
     role(actor,['hr']);const campaign=store.get(id,'service-survey-campaign');if(!campaign?.employeeId||campaign.removedAt)fail('نظرسنجی فردی پیدا نشد.',404);if(campaign.status!=='open')return campaign;
@@ -834,5 +838,5 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     return store.get(id,'exam-import-batch');
   }
 
-  return {positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,settlementPreview,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
+  return {importPeerResponses,listPeerImports,positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,settlementPreview,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
 }

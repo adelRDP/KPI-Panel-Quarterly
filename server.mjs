@@ -105,6 +105,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   publicFiles.add('src/search-ui.js');
   publicFiles.add('src/score-settings-ui.js');
   publicFiles.add('src/account-security-ui.js');
+  publicFiles.add('src/peer-survey-import-ui.js');
   for(const name of ['kpi-sidebar-background','kpi-sidebar-background-day','kpi-holding-transparent','holding-5040-collapsed'])publicFiles.add(`src/assets/${name}.webp`);
   const staticCache=new Map();
   const send=(res,code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
@@ -313,6 +314,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         const appealReview=path.match(/^\/api\/org\/appeals\/([\w-]+)\/review$/);
         if(appealReview&&req.method==='POST')return send(res,200,organization.reviewAppeal(actor,appealReview[1],JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/evaluation-models'&&req.method==='GET')return send(res,200,organization.evaluationModels(actor,url.searchParams.get('period')||workflow.currentPeriod));
+        if(path==='/api/org/surveys/imports'&&req.method==='GET')return send(res,200,organization.listPeerImports(actor));
+        if(path==='/api/org/surveys/import'&&req.method==='POST')return send(res,200,organization.importPeerResponses(actor,JSON.parse((await body(req,512*1024)).toString('utf8'))));
         if(path==='/api/org/surveys'&&req.method==='GET')return send(res,200,organization.serviceCampaigns(actor));
         if(path==='/api/org/surveys/service'&&req.method==='POST')return send(res,201,organization.createServiceCampaign(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/surveys/service/publish-month'&&req.method==='POST')return send(res,200,organization.publishServiceCampaignMonth(actor,JSON.parse((await body(req)).toString('utf8')).period));
