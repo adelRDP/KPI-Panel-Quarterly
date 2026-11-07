@@ -5,6 +5,8 @@ import {sha256,buildPrompt,finalizeReview,resultSchema,POLICY_VERSION,ReviewVali
 import {requireWorkEvidence} from './evidence-privacy.mjs';
 import {MAX_FULL_FILE_EVIDENCE_BYTES,MAX_FULL_FILE_PARTS} from './evidence-limits.mjs';
 import {citationRepairExamples} from './citation-repair.mjs';
+import {buildFileSynthesis,FILE_SYNTHESIS_VERSION,SYNTHESIS_PROMPT_BYTES} from './file-synthesis.mjs';
+export {FILE_SYNTHESIS_VERSION} from './file-synthesis.mjs';
 export const FILE_REVIEW_VERSION='full-file-review-v1';
 export const FILE_REPAIR_VERSION='file-output-repair-v2-source-quotes';
 export const MAX_VALIDATION_REPAIRS=2;
@@ -79,7 +81,13 @@ export async function assessFullFile({activity,evidence,context,provider,runMode
        }
       }
       accumulate(output.usage);lastThreadId=output.threadId;await assertCurrent();
-      try{return {output,verified:finalizeReview(output.result,activity,packet),effectivePromptHash:sha256(effectivePrompt),repairAttempts:attempt};}catch(error){
+      try{
+        const verified=finalizeReview(output.result,activity,packet);
+        // A quote must exist both in this bounded packet and in the original.
+        // Joining excerpt strings must never manufacture a valid quotation.
+        if(stage==='reporting')finalizeReview(output.result,activity,evidence);
+        return {output,verified,effectivePromptHash:sha256(effectivePrompt),repairAttempts:attempt};
+      }catch(error){
         if(!(error instanceof ReviewValidationError))throw error;
         examples=error.code==='invalid_citation'?citationRepairExamples(output.result,packet):[];
         issue=error;validationRetries.push({stage,part,attempt:attempt+1,code:error.code,promptHash:sha256(effectivePrompt),responseHash:sha256(JSON.stringify(output.result)??'null')});
@@ -99,38 +107,33 @@ export async function assessFullFile({activity,evidence,context,provider,runMode
     if(!cached)({output,verified,effectivePromptHash,repairAttempts}=await validatedCall(prompt,part,'reading',index+1));
     await assertCurrent();
     if(cached)reusedParts++;
-    readings.push({part:index+1,summary:verified.summary,criteria:verified.criteria});
+    readings.push({part:index+1,sourceChunkIds:part.chunks.map(c=>c.id),summary:verified.summary,criteria:verified.criteria});
     await onProgress?.({phase:'read',index:index+1,total:parts.length,inputHash,effectivePromptHash,repairAttempts,result:{summary:verified.summary,criteria:verified.criteria},usage:cached?{}:output.usage,cached,validationRetries:[...validationRetries]});
   }
   let raw,synthesisCalls=0,synthesisLevels=0;
   if(parts.length===1)raw={summary:readings[0].summary,criteria:readings[0].criteria};
   else{
-    const reportPrompt=(findings,intermediate=false)=>{
-      const quotes=new Map();for(const r of findings)for(const c of r.criteria)for(const q of c.citations){if(!quotes.has(q.chunkId))quotes.set(q.chunkId,new Set());quotes.get(q.chunkId).add(q.quote);}
-      const verifiedExcerpts={...evidence,chunks:evidence.chunks.filter(c=>quotes.has(c.id)).map(c=>({...c,text:[...quotes.get(c.id)].join('\n')})),readingMode:intermediate?'verified-findings-group':'synthesis-after-reading-every-part',completeFileRead:true};
-      const instruction=intermediate?'FILE REPORT MERGE: This is ONE GROUP of verified findings, NOT a final whole-file decision. Combine ALL findings in this group per criterion. Preserve documented defects, ambiguities, missing fields, relevant subject/period/deadline facts and exact source references. Do not average scores. Absence in this group cannot prove a whole-file failure or full completion. This report will be combined with every other group. Be concise: aim for 400 characters for summary and each reason, and up to two short relevant citations per criterion.':'FINAL FILE REPORT: Every file part was read. Combine ALL verified part findings. Evaluate only the published task and acceptance criteria for the specified subject. Cross-reference reporting periods, deadlines and send times across parts. Do not average part scores or count unrelated personnel. A claim that every report/all month is covered requires direct evidence; otherwise insufficient. Keep missing data explicit. Never treat absence in one part as a whole-file failure. Cite exact original chunk quotations, including sheet/cell context.';
-      return instruction+'\nVERIFIED PART FINDINGS:\n'+JSON.stringify(findings)+'\n'+buildPrompt(activity,verifiedExcerpts,context);
-    };
-    let findings=readings,prompt=reportPrompt(findings);
-    while(Buffer.byteLength(prompt)>48000){
+    const report=(findings,intermediate=false,enrich=false)=>buildFileSynthesis({activity,evidence,context,findings,intermediate,enrich});
+    let findings=readings;
+    while(Buffer.byteLength(report(findings).prompt)>SYNTHESIS_PROMPT_BYTES){
       if(++synthesisLevels>5)fail('جمع‌بندی همهٔ یافته‌ها در ظرفیت گزارش نهایی قرار نگرفت؛ نمرهٔ قطعی ثبت نشد.');
       const groups=[];let group=[];
       for(const finding of findings){
-        if(Buffer.byteLength(reportPrompt([...group,finding],true))>43000){if(!group.length)fail('یک یافته از ظرفیت تجمیع عبور کرد؛ نمرهٔ قطعی ثبت نشد.');groups.push(group);group=[];}
-        group.push(finding);if(Buffer.byteLength(reportPrompt(group,true))>43000)fail('یک یافته از ظرفیت تجمیع عبور کرد؛ نمرهٔ قطعی ثبت نشد.');
+        if(Buffer.byteLength(report([...group,finding],true).prompt)>43000){if(!group.length)fail('یک یافته از ظرفیت تجمیع عبور کرد؛ نمرهٔ قطعی ثبت نشد.');groups.push(group);group=[];}
+        group.push(finding);if(Buffer.byteLength(report(group,true).prompt)>43000)fail('یک یافته از ظرفیت تجمیع عبور کرد؛ نمرهٔ قطعی ثبت نشد.');
       }
       if(group.length)groups.push(group);
       const merged=[];
       for(const [index,g]of groups.entries()){
         await assertCurrent();await onProgress?.({phase:'reporting',index:parts.length,total:parts.length,synthesis:{level:synthesisLevels,group:index+1,groups:groups.length}});
-        const {output,verified}=await validatedCall(reportPrompt(g,true),{...evidence,incomplete:true},'reporting',null);synthesisCalls++;await assertCurrent();
-        merged.push({parts:g.flatMap(r=>r.parts||[r.part]),summary:verified.summary,criteria:verified.criteria});
+        const {prompt,packet}=report(g,true,true),{verified}=await validatedCall(prompt,{...packet,incomplete:true},'reporting',null);synthesisCalls++;await assertCurrent();
+        merged.push({parts:g.flatMap(r=>r.parts||[r.part]),sourceChunkIds:[...new Set(g.flatMap(r=>r.sourceChunkIds))],summary:verified.summary,criteria:verified.criteria});
       }
-      findings=merged;prompt=reportPrompt(findings);
+      findings=merged;
     }
-    await assertCurrent();await onProgress?.({phase:'reporting',index:parts.length,total:parts.length});const {output}=await validatedCall(prompt,evidence,'reporting',null);synthesisCalls++;await assertCurrent();raw=output.result;
+    await assertCurrent();await onProgress?.({phase:'reporting',index:parts.length,total:parts.length});const {prompt,packet}=report(findings,false,true),{output}=await validatedCall(prompt,packet,'reporting',null);synthesisCalls++;await assertCurrent();raw=output.result;
   }
   const result=finalizeReview(raw,activity,evidence);
-  result.fileProcessing={version:FILE_REVIEW_VERSION,repairVersion:FILE_REPAIR_VERSION,validationRetries,automaticRetries,resilientResume,resilientProcessing:resilience,complete:!evidence.incomplete,readParts:parts.length,totalParts:parts.length,readChunks:evidence.chunks.length,totalChunks:evidence.totalChunks,modelCalls,reusedParts,synthesisCalls,synthesisLevels,documents:evidence.documents.map(d=>({id:d.id,name:d.name,status:d.status,sheets:d.workbook?.totalSheets??null,cells:d.workbook?.totalCells??null}))};
+  result.fileProcessing={version:FILE_REVIEW_VERSION,synthesisVersion:FILE_SYNTHESIS_VERSION,repairVersion:FILE_REPAIR_VERSION,validationRetries,automaticRetries,resilientResume,resilientProcessing:resilience,complete:!evidence.incomplete,readParts:parts.length,totalParts:parts.length,readChunks:evidence.chunks.length,totalChunks:evidence.totalChunks,modelCalls,reusedParts,synthesisCalls,synthesisLevels,documents:evidence.documents.map(d=>({id:d.id,name:d.name,status:d.status,sheets:d.workbook?.totalSheets??null,cells:d.workbook?.totalCells??null}))};
   return {result,usage,threadId:lastThreadId};
 }

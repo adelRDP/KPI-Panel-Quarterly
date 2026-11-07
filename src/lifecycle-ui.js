@@ -258,6 +258,18 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     managerPersonnel:makeNavigationGroup('manager-personnel','اطلاعات پرسنلی','i-person-card',['chart','manager-personnel'],'manager'),
     managerSurveys:makeNavigationGroup('manager-surveys','رضایت‌سنجی پرسنل','i-checklist',['surveys','peer-surveys'],'manager')
   };
+  const incomingNav=$('[data-view="incoming"]'),incomingBadge=document.createElement('b'),requestsBadge=document.createElement('b');
+  incomingBadge.id='incomingRequestCount';requestsBadge.id='requestsPendingCount';
+  for(const badge of [incomingBadge,requestsBadge]){badge.className='incoming-request-badge';badge.hidden=true;badge.setAttribute('aria-hidden','true');}
+  incomingNav.classList.add('incoming-count-nav');incomingNav.append(incomingBadge);navigationGroups.requests.toggle.querySelector('.nav-group-chevron').before(requestsBadge);
+  let incomingCountUpdatedAt=0;
+  function setIncomingRequestCount(count,requestedAt=Date.now()){
+    if(requestedAt<incomingCountUpdatedAt)return;incomingCountUpdatedAt=requestedAt;
+    const total=user?.role==='hr'&&Number.isSafeInteger(count)&&count>0?count:0;
+    for(const badge of [incomingBadge,requestsBadge]){badge.hidden=!total;badge.textContent=total>99?'۹۹+':fa.format(total);}
+    for(const [nav,title] of [[incomingNav,'درخواست‌های ورودی'],[navigationGroups.requests.toggle,'درخواست‌ها']]){const label=total?`${title}، ${fa.format(total)} درخواست در انتظار تصمیم ادمین`:title;nav.setAttribute('aria-label',label);nav.title=label;}
+  }
+  window.addEventListener('panel:incoming-count',event=>{const value=event.detail;if(user?.role==='hr'&&value?.userId===user.id)setIncomingRequestCount(value.count,value.requestedAt);});
   function syncNavigationGroups(openActive=false){
     for(const {group,toggle,submenu,setOpen} of Object.values(navigationGroups)){
       const active=!group.hidden&&Boolean(submenu.querySelector('.nav-item.active'));toggle.classList.toggle('active',active);
@@ -270,6 +282,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     if($('#positionCloseoutHistory')){$('#positionCloseoutHistory').replaceChildren();$('#positionCloseoutPanel').hidden=!['hr','personnel'].includes(next?.role);}
     if(user?.id!==next?.id){loadedContextKey=null;renderedDesignTables=new WeakMap();}
     refreshVersion++;
+    if(user?.id!==next?.id)setIncomingRequestCount(0);
     closeSidebarFlyout();
     if(user?.id!==next?.id){$('#examExcelForm').reset();$('#examExcelResult').replaceChildren();}
     if(user?.id!==next?.id){$('#appealFiles').value='';syncAppealFileNames();}
@@ -375,7 +388,7 @@ function camelView(id){return {'manager-dashboard':'managerDashboard','manager-p
   let loadedContextKey=null;
   async function refresh({section=null}={}){
     if(!user)return;
-    const version=++refreshVersion,requestedUser=user,requestedPeriod=currentPeriod(),role=user.role,q=quarterNow();
+    const version=++refreshVersion,requestedAt=Date.now(),requestedUser=user,requestedPeriod=currentPeriod(),role=user.role,q=quarterNow();
     const stale=()=>version!==refreshVersion||requestedUser!==user||requestedPeriod!==currentPeriod();
     const paths=role==='manager'?['/api/org/designs','/api/org/positions/review','/api/org/surveys','/api/org/task-deadlines','/api/org/appeals','/api/org/personnel-requests']:role==='hr'?['/api/org/positions','/api/org/units','/api/org/sections','/api/org/designs','/api/org/evaluations','/api/org/appeals','/api/org/surveys','/api/org/exams/imports','/api/org/task-deadlines','/api/org/evaluation-settings','/api/org/settlements']:['/api/org/surveys','/api/org/appeals'];
     const contextKey=JSON.stringify([user.id,role,requestedPeriod]),quarterPath='/api/org/quarters/'+q,modelPath='/api/org/evaluation-models?period='+requestedPeriod;
@@ -388,7 +401,7 @@ function camelView(id){return {'manager-dashboard':'managerDashboard','manager-p
       if(['hr','manager'].includes(role))aiCapabilities=result.pop();
       evaluationModelsData=result.pop();orgChart=result.pop();quarterRows=result.pop();syncDesignModel();
       if(role==='manager'){[designs,positionRequests,campaigns,deadlines,appeals,managerRequestsData]=result;renderTasks();renderPositionRequests();}
-      if(role==='hr'){[positions,orgUnits,orgSections,designs,evaluations,appeals,campaigns,examImports,deadlines,evaluationSettingsData,settlementData]=result;renderOrganization();renderSettlements();renderUpdates();renderDuties();renderIncoming();renderTasks();renderData();renderEvaluationSettings();}
+      if(role==='hr'){[positions,orgUnits,orgSections,designs,evaluations,appeals,campaigns,examImports,deadlines,evaluationSettingsData,settlementData]=result;renderOrganization();renderSettlements();renderUpdates();renderDuties();renderIncoming(!selected,requestedAt);renderTasks();renderData();renderEvaluationSettings();}
       if(role==='personnel')[campaigns,appeals]=result;
       syncDesignModel();renderSurvey();renderAppeals();renderQuarters();fillCommonPeriods();renderChart();renderManagerPersonnel();if(role==='hr')renderQuarterInbox();
     }catch(error){if(!stale())throw error;}
@@ -974,9 +987,10 @@ $('#dutiesList').innerHTML=table(['پرسنل','کد پرسنلی','سمت','و�
   };
   window.addEventListener('panel:session',()=>closeDutiesDialog(true));
   window.addEventListener('panel:view',event=>{if(event.detail!=='duties')closeDutiesDialog(true);});
-  function renderIncoming(){
+  function renderIncoming(updateCount=false,requestedAt=Date.now()){
     if(user?.role!=='hr')return;
     const positionRequests=positions.filter(row=>row.status==='hr_approval'),designRequests=designs.filter(row=>row.status==='hr_review'),quarterRequests=evaluations.filter(row=>row.status==='hr_review'),appealRequests=appeals.filter(row=>row.status==='hr_review');
+    if(updateCount)setIncomingRequestCount(positionRequests.length+designRequests.length+quarterRequests.length+appealRequests.length,requestedAt);
     $('#hrOverview').innerHTML=`<article class="panel"><span>سمت در انتظار تصویب</span><strong>${fa.format(positionRequests.length)}</strong><small>نیازمند تصمیم ادمین</small></article><article class="panel"><span>شاخص KPI در صف</span><strong>${fa.format(designRequests.length)}</strong><small>بررسی و انتشار</small></article><article class="panel"><span>ارزیابی فصل در صف</span><strong>${fa.format(quarterRequests.length)}</strong><small>تأیید یا بازگردانی</small></article><article class="panel"><span>اعتراض در صف</span><strong>${fa.format(appealRequests.length)}</strong><small>بررسی نتیجه یا مبلغ</small></article>`;
     renderIncomingRows('hrPositionInbox','position',positionRequests);
     renderIncomingRows('hrDesignList','design',designRequests);

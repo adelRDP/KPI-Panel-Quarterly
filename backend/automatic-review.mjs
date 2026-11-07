@@ -1,7 +1,7 @@
 import {quarterlyEvidenceWindow,QUARTER_EVIDENCE_POLICY} from './quarterly-evidence-window.mjs';
 import {providerConfig} from './providers.mjs';
 import {sha256,POLICY_VERSION,finalizeReview} from './evaluation.mjs';
-import {loadFullFileEvidence,assertRawFiles,planFileParts,assessFullFile,FILE_REVIEW_VERSION,fileReviewFailureMessage,fileReadingPrompt,FILE_MODEL_TIMEOUT_MS} from './file-assessment.mjs';
+import {loadFullFileEvidence,assertRawFiles,planFileParts,assessFullFile,FILE_REVIEW_VERSION,FILE_SYNTHESIS_VERSION,fileReviewFailureMessage,fileReadingPrompt,FILE_MODEL_TIMEOUT_MS} from './file-assessment.mjs';
 import {submissionRules,delayBreakdown} from './score-rules.mjs';
 import {requireWorkEvidence} from './evidence-privacy.mjs';
 import {createReviewRetention,reviewEvidenceMatches} from './review-retention.mjs';
@@ -45,7 +45,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
   if(!evidence.chunks.length)fail('هیچ متن قابل ارزیابی استخراج نشده است؛ فایل ذخیره شد اما خوانش یا تبدیل مستند باید تکمیل شود.',400);
   const snapshot=task(a);requireWorkEvidence({task:snapshot,context:evaluationContext},{referenceOnly:true});
   const parts=planFileParts(snapshot,evidence,evaluationContext),fingerprint=sha256(JSON.stringify({activity:snapshot,evidence,config,policy:POLICY_VERSION,context:evaluationContext,scoreRules:rules.policy}));
-  return {fingerprint,provider,model:config.model,processingPolicy:'complete-file-resilient-v1',modelTimeoutMs:FILE_MODEL_TIMEOUT_MS,resilientProcessing:true,automatic,actorId:actor.id,inputsVersion:evaluationContext.version,status:'queued',createdAt:now(),policyVersion:POLICY_VERSION,activitySnapshot:snapshot,contextSnapshot:evaluationContext,sourceHash:initialHash,documentHashes:evidence.documents,evidenceSnapshot:evidence,promptHash:sha256(JSON.stringify({version:FILE_REVIEW_VERSION,fingerprint})),fileProcessing:{version:FILE_REVIEW_VERSION,phase:'queued',readParts:0,totalParts:parts.length},scoreRulesSnapshot:rules.policy,submissionKey:rules.submissionKey,submissionRevision:rules.revision,submittedAt:rules.submittedAt,submissionDueDate:rules.dueDate,lateDays:rules.lateDays};
+  return {fingerprint,provider,model:config.model,synthesisVersion:FILE_SYNTHESIS_VERSION,processingPolicy:'complete-file-resilient-v1',modelTimeoutMs:FILE_MODEL_TIMEOUT_MS,resilientProcessing:true,automatic,actorId:actor.id,inputsVersion:evaluationContext.version,status:'queued',createdAt:now(),policyVersion:POLICY_VERSION,activitySnapshot:snapshot,contextSnapshot:evaluationContext,sourceHash:initialHash,documentHashes:evidence.documents,evidenceSnapshot:evidence,promptHash:sha256(JSON.stringify({version:FILE_REVIEW_VERSION,synthesisVersion:FILE_SYNTHESIS_VERSION,fingerprint})),fileProcessing:{version:FILE_REVIEW_VERSION,phase:'queued',readParts:0,totalParts:parts.length},scoreRulesSnapshot:rules.policy,submissionKey:rules.submissionKey,submissionRevision:rules.revision,submittedAt:rules.submittedAt,submissionDueDate:rules.dueDate,lateDays:rules.lateDays};
  }
  async function queue(actor,a,provider,{automatic=false,retry=false}={}){
   let candidate;
@@ -54,7 +54,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
    throw error;
   }
   return store.transaction(()=>{
-   const matching=store.list('review',a.id).filter(r=>r.fingerprint===candidate.fingerprint),previous=matching.find(r=>['queued','running','done'].includes(r.status));
+   const matching=store.list('review',a.id).filter(r=>r.fingerprint===candidate.fingerprint&&(r.status!=='done'||r.result?.fileProcessing?.synthesisVersion===FILE_SYNTHESIS_VERSION)),previous=matching.find(r=>['queued','running','done'].includes(r.status));
    if(previous)return {...previous,cached:previous.status==='done'};
    if(retry&&matching.length>=3)fail('سقف سه تلاش برای همین نسخه تکمیل شده است؛ علت خطا را رفع کنید.');
    if(matching.length&&!retry)return {...matching[0],cached:true};

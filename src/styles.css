@@ -508,9 +508,15 @@ body.activity-analysis-open { overflow:hidden; }
 .activity-review-buttons { display: flex; align-items: center; flex-wrap: nowrap; flex: none; gap: 8px; }
 .activity-review-buttons[hidden] { display: none; }
 .activity-review-buttons .primary-button { white-space: nowrap; min-height: 36px; padding: 8px 12px; font-size: 12px; }
-#activityDocuments details { font-size: var(--text-xs); padding: 8px 0; }
-#activityDocuments summary { cursor: pointer; overflow-wrap: anywhere; }
-#activityDocuments summary svg { vertical-align: middle; margin-inline-end: 6px; }
+#activityDetail .activity-evidence-box { --activity-file-control-width: 148px; }
+.activity-dialog #activityDetail .activity-evidence-box .activity-attach-control { width: var(--activity-file-control-width); justify-content: center; }
+#activityDocuments { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+#activityDocuments .activity-document-chip { display: inline-flex; align-items: center; gap: 6px; width: var(--activity-file-control-width,148px); max-width: 100%; height: 34px; padding: 4px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-subtle); color: var(--color-text); font-size: var(--text-xs); }
+#activityDocuments .activity-document-chip > svg { width: 16px; height: 16px; flex: none; }
+#activityDocuments .activity-document-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#activityDocuments .activity-document-remove { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; min-width: 22px; height: 22px; min-height: 22px; margin: 0; padding: 2px; border: 0; border-radius: 4px; background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+#activityDocuments .activity-document-remove:hover { color: var(--color-report-error); background: var(--color-muted-bg); }
+#activityDocuments .activity-document-remove svg { width: 14px; height: 14px; }
 .activity-dialog button:focus-visible,.activity-dialog summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 @media (max-width: 580px) { .activity-dialog { width: calc(100vw - 16px); max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }.activity-dialog-header,.activity-dialog-body,.activity-dialog-footer { padding: 12px; } }
 #designForm .formula-note { margin-top: 12px; }
@@ -1313,6 +1319,10 @@ select option,select optgroup { background: var(--color-select-option); color: v
 .position-history-state { display:grid; grid-template-columns:max-content max-content; align-items:center; justify-content:start; gap:8px; }
 .position-history-state > .workflow-state,.position-history-state > button { white-space:nowrap; }
 .position-history-state small { grid-column:1 / -1; color:var(--color-text-secondary); }
+.nav-item .incoming-request-badge { flex:none; display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:2px 6px; margin-inline-start:auto; margin-inline-end:0; border-radius:8px; background:var(--color-primary); color:var(--color-text-inverse); font-size:11px; line-height:1; font-variant-numeric:tabular-nums; }
+.nav-item.incoming-count-nav { gap:6px; }
+.nav-item.incoming-count-nav > span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+@media(min-width:821px) { .sidebar.is-collapsed .nav-group-toggle .incoming-request-badge { display:inline-flex; position:absolute; top:2px; inset-inline-end:2px; min-width:18px; height:18px; padding:2px 4px; font-size:10px; } }
 #serviceCampaignForm { margin-bottom:22px; }
 #serviceCampaignForm .service-campaign-fields { min-width:0; border:0; padding:0; margin:18px 0 0; }
 #serviceCampaignForm .service-campaign-fields > legend { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

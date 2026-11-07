@@ -199,7 +199,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
           authSecurity.record('session.switched',{authKind:'demo',userId:input.userId});
           sessions.delete(sessionToken);return send(res,200,newSession(res,input.userId,{remember:session.remember,expires:session.expires}));
         }
-        if(path==='/api/notifications'&&req.method==='GET'){if(['personnel','manager'].includes(actor.role))personalNotes.scan(actor.id);return send(res,200,notifications.list(actor));}
+        if(path==='/api/notifications'&&req.method==='GET'){if(['personnel','manager'].includes(actor.role))personalNotes.scan(actor.id);return send(res,200,{...notifications.list(actor),...(actor.role==='hr'?{incomingRequestCount:store.pendingAdminRequestCount()}:{})});}
         if(path==='/api/chat/contacts'&&req.method==='GET'){announcements.scanChat();return send(res,200,chat.contacts(actor));}
         const chatMatch=path.match(/^\/api\/chat\/([\w-]+)\/(messages|read)$/);
         if(chatMatch?.[2]==='messages'&&req.method==='GET')return send(res,200,chat.conversation(actor,chatMatch[1],url.searchParams.has('before')?Number(url.searchParams.get('before')):null));

@@ -22,8 +22,8 @@
   }
   async function refresh(){
     const user=window.PanelWorkflow?.user;if(!user)return;
-    const current=++requestId,id=user.id;
-    try{const result=await window.PanelWorkflow.api('/api/notifications');if(current!==requestId||window.PanelWorkflow.user?.id!==id)return;accountId=id;items=result.items;if(noticeDialog.open&&!items.some(item=>item.id===noticeDialog.dataset.noticeId))closeNotice();render(result.unreadCount);clearTimeout(boundaryTimer);if(Number.isFinite(result.refreshAfterMs))boundaryTimer=setTimeout(()=>{if(PanelWorkflow.user?.id===id)refresh();},Math.max(50,result.refreshAfterMs+25));}
+    const current=++requestId,id=user.id,requestedAt=Date.now();
+    try{const result=await window.PanelWorkflow.api('/api/notifications');if(current!==requestId||window.PanelWorkflow.user?.id!==id)return;if(user.role==='hr'&&Number.isSafeInteger(result.incomingRequestCount)&&result.incomingRequestCount>=0)window.dispatchEvent(new CustomEvent('panel:incoming-count',{detail:{userId:id,count:result.incomingRequestCount,requestedAt}}));accountId=id;items=result.items;if(noticeDialog.open&&!items.some(item=>item.id===noticeDialog.dataset.noticeId))closeNotice();render(result.unreadCount);clearTimeout(boundaryTimer);if(Number.isFinite(result.refreshAfterMs))boundaryTimer=setTimeout(()=>{if(PanelWorkflow.user?.id===id)refresh();},Math.max(50,result.refreshAfterMs+25));}
     catch(error){if(current===requestId&&!panel.hidden)list.innerHTML=`<p class="notification-empty">${escapeHtml(error.message)}</p>`;}
   }
   button.addEventListener('click',async()=>{const opening=panel.hidden;panel.hidden=!opening;button.setAttribute('aria-expanded',String(opening));if(opening){position();await refresh();panel.querySelector('h2')?.focus?.();}});
