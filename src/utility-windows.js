@@ -44,7 +44,11 @@
   window.addEventListener('panel:session',sessionChanged);window.addEventListener('resize',layout);window.addEventListener('panel:sidebar',layout);
   if(typeof ResizeObserver==='function'){const observer=new ResizeObserver(layout);observer.observe(document.querySelector('#sidebar'));}
   const menu=document.querySelector('#accountMenu'),toggle=document.querySelector('#accountMenuToggle'),logout=document.querySelector('#panelLogout'),status=document.querySelector('#accountActionStatus');
-  toggle.onclick=()=>{menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)logout.focus();};
+  const changePassword=document.querySelector('#panelChangePassword');
+  const syncPasswordAction=()=>{changePassword.hidden=window.PanelWorkflow?.user?.role!=='personnel';};
+  window.addEventListener('panel:session',syncPasswordAction);window.addEventListener('panel:password-required',syncPasswordAction);syncPasswordAction();
+  changePassword.onclick=()=>{if(window.PanelWorkflow?.user?.role!=='personnel')return;menu.hidden=true;toggle.setAttribute('aria-expanded','false');window.PanelWorkflow.go('account-security');if(!window.PanelWorkflow.demo)document.querySelector('#accountPasswordForm [name=currentPassword]').focus();};
+  toggle.onclick=()=>{syncPasswordAction();menu.hidden=!menu.hidden;toggle.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)(changePassword.hidden?logout:changePassword).focus();};
   document.addEventListener('click',event=>{if(!event.target.closest('.sidebar-account-card')){menu.hidden=true;toggle.setAttribute('aria-expanded','false');}});
   menu.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();menu.hidden=true;toggle.setAttribute('aria-expanded','false');toggle.focus();}};
   logout.onclick=async()=>{

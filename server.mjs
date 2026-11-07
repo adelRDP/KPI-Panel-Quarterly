@@ -1,3 +1,4 @@
+import {createPositionHistory} from './backend/position-history.mjs';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, unlink, stat } from 'node:fs/promises';
 import {existsSync} from 'node:fs';
@@ -49,6 +50,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   if(existsSync(join(dataRoot,'RESTORE_IN_PROGRESS')))throw Error('بازیابی این پایگاه داده کامل نشده است؛ ابتدا بازیابی سالم را تکمیل کنید.');
   uploadRoot ||= isolated?join(dataRoot,'uploads'):join(root,'data','raw','kpi-panel');
   const store=openStore(dataRoot); const busy=new Set();
+  const positionHistory=createPositionHistory(store);
   const workflow=createWorkflow(store),announcements=createAnnouncements(store,workflow),notifications=createNotificationCenter(store,workflow,{announcements}),organization=createOrganizationWorkflow(store,workflow,{runModel,notifications,busy}),evaluationSettings=createEvaluationSettings(store);
   // Hybrid keeps the original shared entry alongside fixed personal identities.
   const hybrid=authMode==='hybrid'||authMode===undefined&&!isolated;
@@ -218,7 +220,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/workflow/surveys'&&req.method==='POST'){const saved=workflow.saveSurvey(actor,JSON.parse((await body(req)).toString('utf8')));notifications.publish({eventKey:`manager-survey:${saved.id}`,recipientIds:[saved.employeeId],actorId:actor.id,kind:'info',title:'ارزیابی مدیر ثبت شد',description:'امتیاز ارزیابی مدیر برای دوره به‌روز شد.',view:'dashboard',entityId:saved.id});return send(res,201,saved);}
         if(path==='/api/workflow/proposals'&&req.method==='GET')return send(res,200,workflow.proposals(actor));
         if(path==='/api/workflow/proposals'&&req.method==='POST')return send(res,201,workflow.submitProposal(actor,JSON.parse((await body(req)).toString('utf8'))));
-        if(path==='/api/org/positions'&&req.method==='GET')return send(res,200,organization.listPositions(actor));
+        if(path==='/api/org/positions'&&req.method==='GET')return send(res,200,positionHistory.list(actor,organization.listPositions(actor)));
         if(path==='/api/org/settlements'&&req.method==='GET')return send(res,200,organization.settlementPeople(actor));
         if(path==='/api/org/settlements/preview'&&req.method==='POST')return send(res,200,organization.settlementPreview(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/settlements'&&req.method==='POST')return send(res,201,organization.registerSettlement(actor,JSON.parse((await body(req)).toString('utf8'))));
@@ -254,6 +256,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/org/task-deadlines'&&req.method==='GET')return send(res,200,organization.taskDeadlines(actor));
         if(path==='/api/org/positions/review'&&req.method==='GET')return send(res,200,organization.positionProposals(actor));
         if(path==='/api/org/position-closeouts'&&req.method==='GET')return send(res,200,organization.closeoutHistory(actor,actor.role==='hr'?undefined:actor.id));
+        const positionHistoryAction=path.match(/^\/api\/org\/positions\/([\w-]+)\/history(?:\/(restore))?$/);
+        if(positionHistoryAction&&req.method===(positionHistoryAction[2]?'POST':'DELETE'))return send(res,200,positionHistoryAction[2]?positionHistory.restore(actor,positionHistoryAction[1]):positionHistory.hide(actor,positionHistoryAction[1]));
         const positionCloseout=path.match(/^\/api\/org\/positions\/([\w-]+)\/closeout$/);
         if(positionCloseout&&req.method==='GET')return store.withReadCache(()=>send(res,200,organization.positionCloseoutPreview(actor,positionCloseout[1])));
         if(path==='/api/org/personnel-requests'&&req.method==='GET')return send(res,200,organization.personnelRequests(actor));

@@ -12,7 +12,7 @@
     event.preventDefault();if(busy||!form.reportValidity())return;busy=true;button.disabled=true;status.textContent='در حال ورود…';
     try{const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access:access.value,username:form.elements.username.value,password:password.value,remember:form.elements.remember.checked})});
       let result;try{result=await response.json();}catch{throw Error('پاسخ معتبر دریافت نشد؛ دوباره تلاش کنید.');}
-      if(!response.ok)throw Error(result.error||'ورود ناموفق بود.');password.value='';window.location.replace('/');
+      if(!response.ok)throw Error(result.error||'ورود ناموفق بود.');password.value='';window.location.replace(access.value==='personnel'&&new URLSearchParams(window.location.search).get('next')==='password'?'/#change-password':'/');
     }catch(error){status.textContent=error instanceof TypeError?'ارتباط با سرور برقرار نشد؛ دوباره تلاش کنید.':error.message;}
     finally{busy=false;button.disabled=false;}
   };
