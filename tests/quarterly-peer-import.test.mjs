@@ -22,7 +22,7 @@ function setup(t){
 test('preview is read-only, imports every valid vote before aggregation and retries without duplicate votes',t=>{
  const {store,org,hr,draft,input,preview,commit}=setup(t),before=store.list('service-survey-response');
  const p=preview(input);assert.equal(p.importedCount,4);assert.deepEqual(store.list('service-survey-response'),before);assert.equal(store.list('peer-survey-import').length,0);
- const result=commit(input);assert.equal(result.importedCount,4);assert.equal(result.completedCount,1);assert.equal(store.get(draft.id,'service-survey-campaign').aggregate,60);
+ const result=commit(input);assert.equal(result.importedCount,4);assert.equal(result.completedCount,0);assert.equal(store.list('service-survey-aggregate').length,0);org.closeServiceCampaign(hr,draft.id);assert.equal(store.get(draft.id,'service-survey-campaign').aggregate,60);
  assert.equal(store.list('service-survey-aggregate','employee-0')[0].score,60);assert.equal(org.importPeerResponses(hr,{...input,confirm:true,fingerprint:p.fingerprint}).replayed,true);assert.equal(store.list('service-survey-response').length,4);
  assert.throws(()=>org.importPeerResponses(hr,{...input,rows:input.rows.slice(1)}),{status:409});
  const archive=JSON.stringify(org.listPeerImports(hr));assert.ok(!archive.includes('respondentCode'));assert.ok(!archive.includes('respondentHash'));assert.ok(!archive.includes('"score"'));
@@ -42,7 +42,7 @@ test('new interactive votes invalidate the preview; mixed interactive and import
  const saved=commit(input);assert.equal(saved.importedCount,3);assert.equal(saved.quarantined.length,1);assert.equal(store.list('service-survey-response').length,4);
 });
 test('Persian codes and scores are normalized and the first response is not silently treated as zero',t=>{
- const {input,preview,commit,store}=setup(t),data={...input,rows:[{targetCode:'۱۰۰۳',respondentCode:'١٠٠٥',score:'۸۰'}]};
+ const {input,preview,commit,store,org,hr}=setup(t),data={...input,rows:[{targetCode:'۱۰۰۳',respondentCode:'١٠٠٥',score:'۸۰'}]};
  assert.equal(preview(data).importedCount,1);commit(data);assert.equal(store.list('service-survey-response')[0].score,80);
 });
 test('different targets aggregate separately and oversized or unconfirmed requests never write votes',t=>{
@@ -51,7 +51,7 @@ test('different targets aggregate separately and oversized or unconfirmed reques
  assert.throws(()=>preview({...input,rows:Array.from({length:501},()=>input.rows[0])}),{status:400});
  assert.throws(()=>org.importPeerResponses(hr,{...input,confirm:true,fingerprint:'stale'}),{status:409});assert.equal(store.list('service-survey-response').length,0);
  const saved=commit({...input,rows:[...input.rows,...input.rows.map(r=>({...r,targetCode:'1004',score:50}))]});
- assert.equal(saved.importedCount,8);assert.equal(saved.completedCount,2);assert.equal(store.list('service-survey-aggregate','employee-0')[0].score,60);assert.equal(store.list('service-survey-aggregate','employee-1')[0].score,50);
+ assert.equal(saved.importedCount,8);assert.equal(saved.completedCount,0);for(const campaign of store.list('service-survey-campaign').filter(c=>c.status==='open'))org.closeServiceCampaign(hr,campaign.id);assert.equal(store.list('service-survey-aggregate','employee-0')[0].score,60);assert.equal(store.list('service-survey-aggregate','employee-1')[0].score,50);
 });
 test('locked quarters, closed positions, deadlines and unpublished campaigns block imports',t=>{
  const {store,input,preview,draft}=setup(t);
@@ -75,4 +75,17 @@ test('HTTP protects admin-only import and archive and permits an authorized prev
  const preview=await req('/api/org/surveys/import',{...input,preview:true});assert.equal(preview.status,200);assert.equal(preview.data.importedCount,4);
  assert.equal((await req('/api/org/surveys/import',{...input,confirm:true,fingerprint:preview.data.fingerprint})).data.importedCount,4);
  for(const userId of ['manager','employee-0']){const switched=await req('/api/session',{userId});const token=switched.data.token;assert.equal((await req('/api/org/surveys/imports',null,token)).status,403);assert.equal((await req('/api/org/surveys/import',{...input,preview:true},token)).status,403);session.token=token;}
+});
+
+
+test('reaching quorum keeps interactive collection open and final closing includes every valid later vote',t=>{
+ const {store,w,org,hr,draft}=setup(t);const voters=['employee-2','employee-3','employee-4','other-manager'];
+ for(const id of voters.slice(0,3))org.submitServiceResponse(w.user(id),draft.id,{score:100});assert.equal(store.get(draft.id,'service-survey-campaign').status,'open');assert.equal(store.list('service-survey-aggregate').length,0);org.submitServiceResponse(w.user(voters[3]),draft.id,{score:0});const closed=org.closeServiceCampaign(hr,draft.id);assert.equal(closed.aggregate,75);assert.equal(closed.responseCount,4);assert.equal(store.list('service-survey-aggregate')[0].score,75);
+});
+
+test('deadline scan closes a new campaign with all votes and never fabricates a zero below quorum',t=>{
+ const {store,w,org,hr,draft}=setup(t);for(const id of ['employee-2','employee-3','employee-4','other-manager'])org.submitServiceResponse(w.user(id),draft.id,{score:75});
+ const second=org.createServiceCampaign(hr,{employeeId:'employee-1',period:draft.period,minParticipation:60});org.publishServiceCampaign(hr,second.id);org.submitServiceResponse(w.user('employee-2'),second.id,{score:0});
+ for(const id of [draft.id,second.id])store.put('service-survey-campaign',{...store.get(id,'service-survey-campaign'),dueAt:'2000-01-01'});
+ org.scanDeadlines();assert.equal(store.get(draft.id,'service-survey-campaign').status,'completed');assert.equal(store.list('service-survey-aggregate','employee-0')[0].score,75);assert.equal(store.get(second.id,'service-survey-campaign').status,'insufficient');assert.equal(store.list('service-survey-aggregate','employee-1').length,0);org.scanDeadlines();assert.equal(store.list('service-survey-aggregate','employee-0').length,1);
 });

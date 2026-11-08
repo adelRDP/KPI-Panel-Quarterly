@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node scripts/start-quarterly.mjs",
     "start:supervised": "node scripts/start-quarterly.mjs",
-    "test": "node --test tests/quarterly-*.test.mjs tests/queue-index.test.mjs tests/theme-mode.test.mjs tests/panel-backup.test.mjs",
+    "test": "node --test tests/quarterly-*.test.mjs tests/queue-index.test.mjs tests/theme-mode.test.mjs tests/panel-backup.test.mjs tests/account-security-ui.test.mjs tests/account-defaults.test.mjs",
     "test:legacy": "node --test tests/*.test.cjs tests/*.test.mjs",
     "check": "node scripts/check.mjs",
     "benchmark:preprocess": "node scripts/benchmark-preprocess.mjs",

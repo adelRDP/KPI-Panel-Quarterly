@@ -1,3 +1,4 @@
+import {approvedActivityScore} from './activity-exceptions.mjs';
 import {requireQuarter,periodAtDate,quarterOf} from './quarter-period.mjs';
 import {quarterBounds,calculateQuarterSlice} from './quarterly-calculation.mjs';
 import {policyForPeriod} from './evaluation-settings.mjs';
@@ -6,6 +7,7 @@ import {activityHumanFinal} from './activity-human-review.mjs';
 import {assertQuarterWritable} from './quarter-lock.mjs';
 import {settlementState,settlementFor} from './personnel-settlement.mjs';
 import {validateActivity} from './evaluation.mjs';
+import {finalQuarterSnapshot,frozenWorkflowSnapshot} from './quarter-final-snapshot.mjs';
 export const currentPeriod=()=>periodAtDate();
 export const quarterMonths=q=>[requireQuarter(q)];
 export const periodBounds=quarterBounds;
@@ -25,7 +27,7 @@ export function createWorkflow(store){
  const canRead=(actor,id)=>actor?.role==='hr'||actor?.id===id||manages(actor,user(id));
  const closed=id=>store.list('position-closeout').find(p=>p.positionId===id&&p.status==='locked');
  function requireEmployee(actor,id,write=false){const p=user(id);if(p?.role!=='personnel'||(write?!manages(actor,p):!canRead(actor,id)))fail('دسترسی به پرسنل مجاز نیست.',403);return p;}
- function activityScore(a){const human=activityHumanFinal(store,a);if(human)return human.result.finalScore;const r=store.list('review',a.id).find(r=>r.status==='done');return r?.result?.finalForActivity&&Number.isFinite(r.result.qualityScore)&&reviewEvidenceMatches(store,a,r)?r.result.finalScore??r.result.qualityScore:null;}
+ function activityScore(a){const amended=approvedActivityScore(store,a);if(amended)return amended.score;const human=activityHumanFinal(store,a);if(human)return human.result.finalScore;const r=store.list('review',a.id).find(r=>r.status==='done');return r?.result?.finalForActivity&&Number.isFinite(r.result.qualityScore)&&reviewEvidenceMatches(store,a,r)?r.result.finalScore??r.result.qualityScore:null;}
  function snapshotCore(id,q,positionId=null,interval=null){
   requireQuarter(q);const p=userAt(id,q);if(p?.role!=='personnel')fail('پرسنل معتبر نیست.');
   const b=quarterBounds(q),pos=positionId?store.get(positionId,'position-assignment'):assessmentPosition(id,q);
@@ -42,7 +44,7 @@ export function createWorkflow(store){
   const otherOpen=store.list('position-assignment',id).some(p=>p.status==='published'&&p.id!==pos?.id&&p.effectiveFrom<b.end&&(!p.effectiveTo||p.effectiveTo>b.start)&&!closed(p.id));
   return {...calculation,...(moneyMissing?{complete:false,ceiling:null,earned:null,baseSalary:null,knownTotal:null,finalSalary:null,maxFinalSalary:null}:{}),moneyMissing,employee:publicUser(merge(p,pos)),period:q,policy,hasProjects,exam:exam||null,survey:survey||null,assignments,positionId:pos?.id||null,positionVersion:pos?.version||null,positionReviewRequired:otherOpen,projectExemptionRequired:false,source:'quarterly-project'};
  }
- function snapshotForSystem(id,q){
+ function liveSnapshotForSystem(id,q){
   const current=assessmentPosition(id,q),frozen=store.list('position-closeout',id).filter(r=>r.status==='locked').flatMap(r=>r.months.filter(s=>s.period===q).map(s=>({...s,closed:true,closeoutId:r.id})));
   if(!frozen.length)return snapshotCore(id,q);
   const parts=[...frozen];if(current&&!closed(current.id))parts.push(snapshotCore(id,q,current.id));parts.sort((a,b)=>a.start.localeCompare(b.start));
@@ -50,6 +52,7 @@ export function createWorkflow(store){
   const components=['exam','manager','routine','project','peer'].map(id=>{const rows=parts.map(p=>p.components.find(c=>c.id===id)).filter(Boolean),cap=rows.reduce((n,c)=>n+c.ceiling,0),pending=rows.some(c=>c.applicable&&c.score===null);return {...rows[0],id,ceiling:cap,weight:ceiling?cap/ceiling*100:0,score:pending||!cap?null:rows.reduce((n,c)=>n+(c.score||0)*c.ceiling,0)/cap,earned:pending?null:rows.reduce((n,c)=>n+(c.earned||0),0),applicable:rows.some(c=>c.applicable),status:pending?'pending':'scored'};});
   return {...parts.at(-1),segments:parts,components,assignments:parts.flatMap(p=>p.assignments.map(a=>({...a,positionClosed:!!p.closed}))),baseSalary,ceiling,earned,knownTotal:baseSalary+earned,finalSalary:complete?baseSalary+earned:null,maxFinalSalary:baseSalary+ceiling,complete,performance:complete&&ceiling?parts.reduce((n,p)=>n+(p.performance||0)*p.ceiling,0)/ceiling:null,positionReviewRequired:gaps||parts.some(p=>p.positionReviewRequired),formulaVersion:'quarterly-position-closeout-v1'};
  }
+ function snapshotForSystem(id,q){const final=finalQuarterSnapshot(store,id,q);return final?frozenWorkflowSnapshot(final.snapshot.sourceSnapshot||liveSnapshotForSystem(id,q),final):liveSnapshotForSystem(id,q);}
  const managerSafe=data=>({...data,baseSalary:undefined,monthlySalary:undefined,earned:undefined,ceiling:undefined,knownTotal:undefined,finalSalary:undefined,maxFinalSalary:undefined,segments:data.segments?.map(managerSafe),components:data.components.map(({earned,ceiling,...c})=>c)});
  const snapshot=(actor,id,q=currentPeriod())=>{requireEmployee(actor,id);const r=snapshotForSystem(id,q);return actor.role==='manager'?managerSafe(r):r;};
  function saveSurvey(actor,input){const p=requireEmployee(actor,input.employeeId,true),q=requireQuarter(input.period),pos=assessmentPosition(p.id,q);if(p.isSettled||!pos||pos.isKpiEligible===false)fail('این فرد در این فصل مشمول ارزیابی نیست.',409);if(pos.managerId!==actor.id)fail('فقط مدیر همان سمت مجاز است.',403);assertQuarterWritable(store,p.id,q);if(closed(pos.id))fail('بازهٔ سمت بسته شده است.',409);if(!policyForPeriod(store,q,null,pos.unitId).weights.manager)fail('نظر مدیر سهمی ندارد.');const previous=store.list('manager-survey',p.id).find(r=>r.period===q&&r.positionId===pos.id);return store.put('manager-survey',{id:previous?.id,employeeId:p.id,managerId:actor.id,positionId:pos.id,period:q,score:scoreOf(input.score),note:input.note?text(input.note,2000):'',createdAt:new Date().toISOString()},p.id);}

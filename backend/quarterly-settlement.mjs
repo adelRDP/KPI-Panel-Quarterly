@@ -19,7 +19,7 @@ export function settlementPlan(store,workflow,employeeId,settlementDate,{today,b
  if(locks.some(r=>quarterBounds(r.quarter).end>end))blockers.push('تاریخ تسویه پیش از پایان فصل نهایی‌شده است؛ بازنویسی نتیجه مجاز نیست.');
  if(blockers.length)return {version:SETTLEMENT_VERSION,employeeId,settlementDate,end,ready:false,blockers,closeouts:[],earned:null,baseSalary:null,total:null,fingerprint:digest({employeeId,settlementDate,blockers})};
  const activities=store.list('activity').filter(a=>a.ownerId===employeeId),ids=new Set([employeeId,...positions.map(p=>p.id),...store.list('kpi-design',employeeId).map(d=>d.id),...activities.map(a=>a.id)]);
- const pending=['review','ai-design-attempt','ai-preprocess-attempt','ai-role-run','activity-human-review'].flatMap(kind=>store.list(kind).filter(r=>['queued','running','manager_review','hr_review'].includes(r.status)&&[r.employeeId,r.designId,r.activityId,r.activitySnapshot?.id,r.positionId].some(id=>ids.has(id))));
+ const pending=['review','ai-design-attempt','ai-preprocess-attempt','ai-role-run','activity-human-review','review-case'].flatMap(kind=>store.list(kind).filter(r=>['queued','running','manager_review','hr_review',...(kind==='review-case'?['needs_revision']:[])].includes(r.status)&&[r.employeeId,r.designId,r.activityId,r.activitySnapshot?.id,r.positionId].some(id=>ids.has(id))));
  if(pending.length||[...ids].some(id=>busy.has(id)))blockers.push('بارگذاری یا بررسی AI/انسانی هنوز پایان نیافته است؛ تسویه مجاز نیست.');
  const closeouts=[];
  for(const position of positions.filter(p=>p.effectiveFrom<end&&!positionClosed(store,p.id))){

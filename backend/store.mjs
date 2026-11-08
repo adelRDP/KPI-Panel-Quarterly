@@ -15,7 +15,7 @@ export function openStore(root,{readOnly=false}={}) {
     pendingAdminRequestCount() {
       // Count actionable records directly; never parse historical request bodies
       // or confuse unread notifications with work awaiting an admin decision.
-      return db.prepare("SELECT count(*) AS n FROM records WHERE (kind='position-assignment' AND json_extract(value,'$.status')='hr_approval') OR (kind IN ('kpi-design','quarter-evaluation','quarter-appeal') AND json_extract(value,'$.status')='hr_review' AND (kind<>'kpi-design' OR coalesce(json_extract(value,'$.removedAt'),'') IN ('',0)))").get().n;
+      return db.prepare("SELECT count(*) AS n FROM records WHERE (kind='position-assignment' AND json_extract(value,'$.status')='hr_approval') OR (kind IN ('kpi-design','quarter-evaluation','quarter-appeal','review-case','activity-human-review') AND json_extract(value,'$.status')='hr_review' AND (kind<>'kpi-design' OR coalesce(json_extract(value,'$.removedAt'),'') IN ('',0)))").get().n;
     },
     recent(kind,limit=100) { if(!Number.isSafeInteger(limit)||limit<1||limit>500)throw Error('Invalid record limit');return db.prepare('SELECT value FROM records WHERE kind=? ORDER BY rowid DESC LIMIT ?').all(kind,limit).map(row=>JSON.parse(row.value)); },
     nextQueuedReview(inputsVersion,policyVersion) { const row=db.prepare("SELECT value FROM records WHERE kind='review' AND json_extract(value,'$.status')='queued' AND json_extract(value,'$.inputsVersion')=? AND json_extract(value,'$.policyVersion')=? ORDER BY rowid ASC LIMIT 1").get(inputsVersion,policyVersion);return row?JSON.parse(row.value):null; },

@@ -1,3 +1,4 @@
+import {createApprovalSla} from './approval-sla.mjs';
 import {sha256} from './evaluation.mjs';
 import {submissionQuota,scoreRulesAt,delayBreakdown} from './score-rules.mjs';
 import {assertPositionActivityWritable,closedActivity} from './position-closeout.mjs';
@@ -22,6 +23,7 @@ export function assertActivityHumanWritable(store,a){
  if(row&&['manager_review','hr_review','approved'].includes(row.status))fail('این شاخص در گردش تأیید انسانی یا نهایی‌شده است؛ تغییر مستندات و اجرای AI مجاز نیست.');
 }
 export function createActivityHumanReview(store,workflow,{notifications,busy=new Set()}={}){
+ const approvalSla=createApprovalSla(store,workflow,notifications);
  const manager=(actor,a)=>actor?.role==='manager'&&workflow.user(a.ownerId)?.managerId===actor.id&&workflow.manages(actor,workflow.user(a.ownerId));
  const readable=(actor,a)=>workflow.canRead(actor,a.ownerId);
  const current=id=>{const a=store.get(id,'activity');if(!a||a.removedAt)fail('شاخص پیدا نشد.',404);return a;};
@@ -53,7 +55,7 @@ export function createActivityHumanReview(store,workflow,{notifications,busy=new
    canAdminReview:!reason&&!stale&&row?.status==='hr_review'&&actor?.role==='hr'};
  }
  const note=value=>{if(typeof value!=='string'||value.trim().length<5||value.length>10000)fail('توضیحات لازم را بین ۵ تا ۱۰٬۰۰۰ نویسه بنویسید.',400);return value.trim();};
- function audit(actor,a,row,action){store.put('audit-event',{actorId:actor.id,action:'activity-human.'+action,entityType:'activity',entityId:a.id,details:{requestId:row.id,revision:row.revision,status:row.status,policyVersion:ACTIVITY_HUMAN_POLICY},createdAt:stamp()});}
+ function audit(actor,a,row,action){approvalSla.observe('activity-human-review',store.list('activity-human-review',a.id)[0]?.id);store.put('audit-event',{actorId:actor.id,action:'activity-human.'+action,entityType:'activity',entityId:a.id,details:{requestId:row.id,revision:row.revision,status:row.status,policyVersion:ACTIVITY_HUMAN_POLICY},createdAt:stamp()});}
  function notify(actor,a,row,recipientIds,title,view){notifications?.publish({eventKey:`activity-human:${row.id}:${row.revision}`,recipientIds,actorId:actor.id,kind:'info',title,description:a.title,view,entityId:a.id});}
  function submit(actor,id,input){return store.transaction(()=>{
   const a=current(id),s=state(actor,a);if(!s.canSubmit)fail(s.blockedReason||'ارسال توضیحات در این مرحله مجاز نیست.',actor.id===a.ownerId?409:403);

@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {join,resolve,basename,dirname} from 'node:path';
+import {tmpdir} from 'node:os';
+import {randomUUID} from 'node:crypto';
+import {once} from 'node:events';
+import {createPanelServer} from '../server.mjs';
+import {seedQuarterlyFixture} from './quarterly-fixture.mjs';
+import {openStore} from '../backend/store.mjs';
+test('quarterly notes, reminders, chat and announcements preserve privacy, versions and idempotency through HTTP',async()=>{
+const temp=await mkdtemp(join(tmpdir(),'kpi-notes-chat-')),db=join(temp,'db');seedQuarterlyFixture(db);const store=openStore(db),admin=store.get('admin','workflow-user');store.put('workflow-user',{...admin,id:'hr-demo'});store.remove('admin','workflow-user',null);
+const server=createPanelServer({dataRoot:db,uploadRoot:join(temp,'uploads'),demoLogin:false,autoAssessment:false,runModel:()=>{throw Error('No AI calls allowed');}});server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port,tokens={},checks=[];
+async function call(actor,path,body,method=body===undefined?'GET':'POST'){const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json',...(tokens[actor]?{'x-panel-token':tokens[actor]}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});return {status:r.status,data:await r.json()};}
+const check=(name,actual,expected)=>{assert.deepEqual(actual,expected,name);checks.push(name);};
+try{
+ for(const id of ['hr-demo','manager','employee-0','employee-1']){const start=await call(null,'/api/session');tokens[id]=start.data.token;if(id!=='hr-demo')tokens[id]=(await call(id,'/api/session',{userId:id})).data.token;}
+ const input={title:'Synthetic private note',text:'PRIVATE-TEXT',color:'green',pinned:false,completed:false,remindAt:new Date(Date.now()+800).toISOString()},note=await call('employee-0','/api/notes',input);check('create own note',note.status,201);
+ for(const id of ['hr-demo','manager','employee-1']){check('notes private from '+id,(await call(id,'/api/notes')).data.length,0);check('cannot edit another note '+id,(await call(id,'/api/notes/'+note.data.id,{...input,revision:1},'PUT')).status,404);}
+ const updated=await call('employee-0','/api/notes/'+note.data.id,{...input,title:'Updated',revision:1},'PUT');check('update revision',updated.data.revision,2);check('stale update rejected',(await call('employee-0','/api/notes/'+note.data.id,{...input,revision:1},'PUT')).status,409);
+ await new Promise(r=>setTimeout(r,1000));const notices=(await call('employee-0','/api/notifications')).data.items;check('reminder delivered once',notices.filter(n=>n.view==='notes').length,1);check('reminder hides note text',JSON.stringify(notices).includes('PRIVATE-TEXT'),false);
+ const message={clientId:randomUUID(),text:'Synthetic ordinary message'},sent=await call('manager','/api/chat/employee-0/messages',message);check('manager sends to personnel',sent.status,201);check('message retry idempotent',(await call('manager','/api/chat/employee-0/messages',message)).data.id,sent.data.id);check('reused id with changed text rejected',(await call('manager','/api/chat/employee-0/messages',{...message,text:'Different'})).status,409);check('peer messages forbidden',(await call('employee-1','/api/chat/employee-0/messages',{clientId:randomUUID(),text:'Forbidden'})).status,404);check('admin cannot read another thread',(await call('hr-demo','/api/chat/employee-0/messages')).data.messages.length,0);
+ const received=await call('employee-0','/api/chat/manager/messages');check('recipient receives message',received.data.messages[0].id,sent.data.id);check('mark message read',(await call('employee-0','/api/chat/manager/read',{through:sent.data.seq})).data.readThrough,sent.data.seq);
+ const a={requestId:randomUUID(),title:'Synthetic announcement',body:'Synthetic managers only',audience:'managers',startsAt:new Date(Date.now()-1000).toISOString(),endsAt:new Date(Date.now()+3600000).toISOString()},announcement=await call('hr-demo','/api/announcements',a);check('admin creates announcement',announcement.status,201);check('announcement retry idempotent',(await call('hr-demo','/api/announcements',a)).data.id,announcement.data.id);check('manager cannot publish announcement',(await call('manager','/api/announcements',{...a,requestId:randomUUID()})).status,403);check('manager receives bell notice',(await call('manager','/api/notifications')).data.items.some(i=>i.entityId===announcement.data.id),true);check('personnel excluded from managers audience',(await call('employee-0','/api/notifications')).data.items.some(i=>i.entityId===announcement.data.id),false);check('announcement chat delivery',(await call('manager','/api/chat/hr-demo/messages')).data.messages.some(m=>m.announcement?.id===announcement.data.id),true);
+ check('admin withdraws announcement',(await call('hr-demo','/api/announcements/'+announcement.data.id,undefined,'DELETE')).status,200);check('withdrawal removes bell notice',(await call('manager','/api/notifications')).data.items.some(i=>i.entityId===announcement.data.id),false);check('withdrawal removes announcement chat',(await call('manager','/api/chat/hr-demo/messages')).data.messages.some(m=>m.announcement?.id===announcement.data.id),false);check('ordinary message remains',(await call('employee-0','/api/chat/manager/messages')).data.messages.length,1);
+ check('stale delete rejected',(await call('employee-0','/api/notes/'+note.data.id,{revision:1},'DELETE')).status,409);check('delete own note',(await call('employee-0','/api/notes/'+note.data.id,{revision:2},'DELETE')).data.deleted,true);check('deleted reminder retired',(await call('employee-0','/api/notifications')).data.items.filter(n=>n.view==='notes'&&!n.readAt).length,0);
+
+}finally{server.closeAllConnections();await new Promise(r=>server.close(r));store.close();assert.equal(dirname(resolve(temp)),resolve(tmpdir()));assert.ok(basename(temp).startsWith('kpi-notes-chat-'));await rm(temp,{recursive:true,force:true,maxRetries:5,retryDelay:200});}
+
+});

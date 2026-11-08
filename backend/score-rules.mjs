@@ -1,6 +1,7 @@
 import {periodAtDate} from './quarter-period.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import PerformanceModel from '../src/performance-model.js';
+import {approvedActivityDeadline} from './activity-exceptions.mjs';
 
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status,publicMessage:message});};
 const hr=actor=>{if(actor?.role!=='hr')fail('مدیریت قوانین محاسبه فقط برای ادمین مجاز است.',403);};
@@ -40,7 +41,8 @@ export const ruleGroups=[
     fixed('countMode','واحد شمارش','مجموعهٔ مستندات در ارزیابی موفق؛ نه تعداد فایل','اولین تحویل اصلاحی نیست؛ تغییر مجموعه و ارزیابی موفق یک تحویل اصلاحی است.'),
     fixed('ignoreFailures','خطای بارگذاری، استخراج و AI','بدون مصرف سهمیهٔ تحویل','تلاش ناموفق یا ارزیابی مجدد همان مجموعه، نسخهٔ اصلاحی تازه نیست.') ]},
   {id:'activityAppeal',title:'اعتراض به فعالیت',fields:[
-    future('activityAppeals','تعداد، مهلت، مدارک و اعتراض مجدد','سامانه اکنون اعتراض فصلی دارد؛ اعتراض مستقل به نتیجهٔ فعالیت و مهلت پاسخ مدیر/HR هنوز پیاده‌سازی نشده است.') ]},
+    fixed('activityAppeals','مسیر اعتراض شاخص','ثبت درخواست ← مدیر مستقیم ← ادمین','نمرهٔ اصلاحی نسخه‌دار است؛ اصل تحلیل AI تغییر نمی‌کند.'),
+    field('activityAppealCount','حداکثر اعتراض هر شاخص',numbers([1,2,3,5],'درخواست'),3),field('activityAppealDays','مهلت اعتراض شاخص پس از نتیجه',numbers([3,5,7,10,14,30],'روز کاری'),7) ]},
   {id:'quarterAppeal',title:'اعتراض به فصل',fields:[
     field('quarterAppealCount','تعداد مجاز در هر فصل',numbers([1,2,3,5],'درخواست'),3),
     field('quarterAppealDays','مهلت ثبت پس از قفل نتیجه',numbers([1,3,5,7,10,14,30]),3),
@@ -48,25 +50,25 @@ export const ruleGroups=[
     field('appealRepeat','اعتراض مجدد',[option('allow','مجاز تا سقف فصل؛ منطق فعلی'),option('closed_only','فقط پس از بسته‌شدن درخواست قبلی')],'allow'),
     field('appealEvidence','مستندات اعتراض',[option('optional','توضیح الزامی؛ فایل اختیاری'),option('required','حداقل یک فایل پیش از تأیید مدیر')],'optional'),
     fixed('appealRoute','مسیر بررسی','مدیر مستقیم ← HR','تغییر قانون، مجوز نقش‌ها را گسترش نمی‌دهد.'),
-    future('appealResponse','مهلت پاسخ و نتیجهٔ اصلاحی نسخه‌دار','گردش فعلی تصمیم اعتراض را ثبت می‌کند؛ نتیجهٔ قفل‌شده را خودکار اصلاح یا بازنویسی نمی‌کند.') ]},
+    fixed('appealResponse','نتیجهٔ اصلاحی فصل','پیشنهاد نمرهٔ مدیر ← پیش‌نمایش اختلاف مبلغ ← تصویب ادمین','نسخهٔ قفل‌شده محفوظ و اصلاح در نسخهٔ جدا ثبت می‌شود.') ]},
   {id:'evidence',title:'شواهد و AI',fields:[
     fixed('evidenceSufficiency','کفایت شاهد','تمام معیارها و استخراج کامل؛ نقص یعنی نمرهٔ نامشخص','نبود شاهد به نمرهٔ صفر تبدیل نمی‌شود.'),
     fixed('citations','الزام ارجاع','نقل‌قول معتبر و قابل تطبیق برای هر تصمیم','برای حفاظت از کیفیت، خاموش‌کردن الزام شاهد مجاز نیست.'),
     fixed('reevaluation','محرک ارزیابی مجدد','تغییر مستندات و درخواست کاربر','نسخهٔ قانون همراه ارزیابی ذخیره می‌شود.'),
     fixed('autoAI','اجرای AI','بررسی خودکار پس از ثبت مستندات کاری مجازِ شاخص مصوب','شروع از ثبت گزارش پرسنل است؛ انتشار تنظیمات یا بازخوانی صفحه مدل را اجرا نمی‌کند.'),
-    future('humanReview','مهلت تکمیل و ارجاع انسانی','صف اختصاصی بررسی انسانی شواهد و SLA تکمیل نیازمند توسعه است.') ]},
+    fixed('humanReview','بررسی انسانی و پیگیری مهلت','گردش انسانی پس از سهمیه و هشدار معوق','نتیجه با پیشنهاد مدیر و تصویب ادمین ثبت می‌شود؛ مهلت هشدار از تنظیمات گردش بررسی است.') ]},
   {id:'exceptions',title:'استثناها',fields:[
-    future('exceptions','قطعی، مرخصی، وابستگی و تغییر وظیفه','تشخیص خودکار این شرایط بدون دادهٔ معتبر انجام نمی‌شود. گردش درخواست، دلیل و تأیید تمدید هنوز وجود ندارد.') ]},
+    fixed('exceptions','تمدید با دلیل و تأیید','پرسنل ← مدیر مستقیم ← ادمین','درخواست مستند در بخش بازبینی و تمدید مهلت؛ فقط داخل بازهٔ شاخصِ باز.'),field('extensionMaxDays','حداکثر افزایش موعد هر درخواست',numbers([3,5,7,10,14,30],'روز تقویمی'),30) ]},
   {id:'surveys',title:'نظرسنجی‌ها',description:'قانون هنگام ساخت نظرسنجی ذخیره می‌شود؛ انتشار نسخهٔ جدید، نظرسنجیِ ساخته‌شده را تغییر نمی‌دهد.',fields:[
     field('surveyParticipation','پیش‌فرض حداقل مشارکت',numbers([30,40,50,60,70,80,90,100],'درصد'),60,'فرم هر نظرسنجی همچنان می‌تواند درصد مشارکت اختصاصی تعیین کند.'),
     field('surveyResponses','حداقل تعداد پاسخ',[option('0','منطق فعلی؛ فقط درصد از جمعیت مجاز'),...numbers([3,5,7,10],'پاسخ')],0),
-    field('surveyDays','مهلت پاسخ پس از پایان ماه',numbers([1,3,5,7,10,14]),5),
+    field('surveyDays','مهلت پاسخ پس از پایان فصل',numbers([1,3,5,7,10,14]),5),
     fixed('surveyInsufficient','مشارکت ناکافی','بدون امتیاز؛ نه صفر و نه میانگین ساختگی','حداقل جمعیت مجاز سه نفر باقی می‌ماند.') ]},
   {id:'workflow',title:'گردش بررسی',fields:[
     field('definitionDays','مهلت تعریف شاخص پس از شروع سمت',numbers([3,5,7,10,14]),5),
     field('reminderDays','یادآوری در روز کاری',numbers([1,2,3,4,5,7,10]),4),
     fixed('overdueEscalation','ارجاع موارد معوق','هشدار مدیر و HR؛ بدون صفرسازی خودکار','قواعد این بخش هنگام شروع سمت مؤثر می‌شوند.'),
-    future('approvalSla','مهلت تأیید مدیر و HR','گردش تأیید موجود است؛ زمان‌بندی SLA و ارجاع خودکار تأییدها هنوز ندارد.') ]},
+    fixed('approvalSla','ارجاع معوق','هشدار به مسئول مرحله و ادمین','بدون تأیید خودکار یا صفرسازی؛ برای مراحل جدید پس از فعال‌شدن این نسخه.'),field('approvalSlaDays','مهلت هشدار هر مرحلهٔ تأیید',numbers([3,5,7,10,14],'روز کاری'),7) ]},
   {id:'money',title:'مبلغ KPI',description:'تغییر قواعد مالی فقط از ابتدای یک فصل آینده مجاز است؛ مدل و وزن‌های مؤلفه‌ها در منوی قبلی باقی می‌مانند.',fields:[
     field('incentiveCap','سقف مشوق ماهانه',numbers([10,15,20,25,30],'درصد حقوق پایه'),20,'سقف فصل سه برابر نرخ ماهانه است؛ بازهٔ سمت طبق فرمول موجود تسهیم می‌شود.'),
     fixed('scoreToMoney','تبدیل امتیاز به مبلغ','تبدیل خطی طبق وزن‌های مدل محاسبه','وزن مؤلفه‌ها فقط در منوی تنظیمات مدل محاسبه ویرایش می‌شود.'),
@@ -129,7 +131,8 @@ export function submissionQuota(store,activity,{now=new Date().toISOString()}={}
 }
 export function submissionRules(store,activity,documents,{now=new Date().toISOString(),review=false}={}){
   const policy=scoreRulesAt(store,{unitId:activity.unitId,kind:activity.kind,at:now}),v=policy.values;
-  const due=validDay(activity.dueDate)?addRuleDays(activity.dueDate,Number(v.submissionOffset)+Number(v.graceDays),v.dayType):null;
+  const effectiveDue=approvedActivityDeadline(store,activity)?.dueDate||activity.dueDate;
+  const due=validDay(effectiveDue)?addRuleDays(effectiveDue,Number(v.submissionOffset)+Number(v.graceDays),v.dayType):null;
   const done=store.list('review',activity.id).filter(r=>r.status==='done'&&!r.result?.coverage?.incomplete);
   const unique=new Set(done.map(r=>r.submissionKey||hash((r.documentHashes||[]).map(d=>[d.id,d.sha256]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))));
   const key=submissionKey(documents),alreadyCounted=unique.has(key),first=done.map(r=>r.finishedAt||r.startedAt).filter(Boolean).sort()[0];
@@ -159,7 +162,7 @@ const unitId=input.unitId||null;if(unitId&&(typeof unitId!=='string'||!store.get
     if(!['all','routine','project'].includes(input.activityKind))fail('نوع شاخص معتبر نیست.');
     if(typeof input.reason!=='string'||input.reason.trim().length<5||input.reason.length>2000)fail('دلیل تغییر را با حداقل پنج نویسه بنویسید.');
     if(!input.values||Object.keys(input.values).some(k=>!ruleFields.some(f=>f.key===k)))fail('کلید قانون ناشناخته است.');
-    const values={};for(const f of ruleFields){const value=f.key==='maxUploads'&&input.values[f.key]===undefined?f.default:input.values[f.key];if(!f.options.some(o=>o.value===value))fail(`انتخاب «${f.label}» معتبر نیست.`);values[f.key]=value;
+    const values={};for(const f of ruleFields){const value=['maxUploads','activityAppealCount','activityAppealDays','extensionMaxDays','approvalSlaDays'].includes(f.key)&&input.values[f.key]===undefined?f.default:input.values[f.key];if(!f.options.some(o=>o.value===value))fail(`انتخاب «${f.label}» معتبر نیست.`);values[f.key]=value;
       if(input.activityKind!=='all'&&!activityKeys.has(f.key)&&value!==f.default)fail('تنظیمات عمومی نظرسنجی، اعتراض و گردش کار فقط در دامنهٔ همهٔ شاخص‌ها قابل تغییرند.');}
     if(Number(values.reminderDays)>=Number(values.definitionDays))fail('روز یادآوری باید پیش از پایان مهلت تعریف شاخص باشد.');
     const current=scoreRulesAt(store,{unitId,at:now()}).values;

@@ -1,0 +1,76 @@
+import {mkdtemp,readFile,writeFile,rm,mkdir} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import assert from 'node:assert/strict';
+import {createPanelServer} from '../server.mjs';
+import {seedQuarterlyFixture} from '../tests/quarterly-fixture.mjs';
+import {openStore} from '../backend/store.mjs';
+import {createWorkflow,periodBounds} from '../backend/quarterly-workflow.mjs';
+import {createOrganizationWorkflow} from '../backend/organization-workflow.mjs';
+import {sha256} from '../backend/evaluation.mjs';
+const root=await mkdtemp(join(tmpdir(),'quarterly-browser-')),output=resolve('outputs/quarterly-remediation-browser');await mkdir(output,{recursive:true});
+const fixture=seedQuarterlyFixture(join(root,'db'));
+const setup=openStore(join(root,'db'));setup.put('workflow-policy',{id:'active-policy',version:'browser-test',weights:{exam:0,manager:100,routine:0,project:0,peer:0}});
+const workflow=createWorkflow(setup);workflow.saveSurvey(workflow.user('manager'),{employeeId:'employee-1',period:fixture.period,score:100});
+const employee=setup.get('employee-0','workflow-user'),position=setup.get('position-employee-0','position-assignment');
+workflow.recordExamResult({employeeId:'employee-0',period:fixture.period,score:10,reference:'synthetic-exam'});
+setup.put('manager-survey',{employeeId:'employee-0',positionId:position.id,managerId:'manager',period:fixture.period,score:80},'employee-0');
+const bounds=periodBounds(fixture.period),due=new Date(Date.parse(bounds.end+'T12:00:00Z')-4*86400000).toISOString().slice(0,10),extensionDate=new Date(Date.parse(bounds.end+'T12:00:00Z')-2*86400000).toISOString().slice(0,10);
+const activity=setup.put('activity',{ownerId:'employee-0',positionId:position.id,unitId:'u',period:fixture.period,kind:'routine',title:'Synthetic appeal and extension',description:'Synthetic work report',criteria:[{id:'C1',text:'گزارش کامل باشد'}],assignmentStatus:'approved',dueDate:due,assessmentEnd:bounds.end},'employee-0');
+const extraction={status:'ready',chunks:[{id:'source-1',text:'Synthetic complete report'}]},doc=setup.put('document',{name:'synthetic.txt',sha256:'synthetic',extraction,createdAt:new Date().toISOString()},activity.id);
+setup.put('review',{activitySnapshot:activity,status:'done',finishedAt:new Date().toISOString(),documentHashes:[{id:doc.id,sha256:doc.sha256,extractionHash:sha256(JSON.stringify(extraction))}],result:{finalForActivity:true,qualityScore:50,finalScore:50}},activity.id);
+const past='1404-Q3';setup.put('workflow-user',{...employee,id:'past-e',name:'Synthetic historical employee'});setup.put('position-assignment',{...position,id:'past-p',employeeId:'past-e',effectiveFrom:periodBounds(past).start},'past-e');
+setup.put('evaluation-settings',{id:'evaluation-policy-v1',version:'evaluation-policy-v1',status:'published',effectiveQuarter:past,unitId:null,weights:{exam:100,manager:0,routine:0,project:0,peer:0}});
+workflow.recordExamResult({employeeId:'past-e',period:past,score:40,reference:'synthetic-historical'});
+const org=createOrganizationWorkflow(setup,workflow,{runModel:()=>{throw Error('No AI in browser test');}}),locked=org.approveQuarter(workflow.user('admin'),org.submitQuarter(workflow.user('manager'),past,'past-e').id,{decision:'approve'}),originalLock=JSON.stringify(locked),appeal=org.submitAppeal(workflow.user('past-e'),{quarter:past,reason:'اصلاح مستند نمره آزمون فصل گذشته'});
+setup.close();
+
+const server=createPanelServer({dataRoot:join(root,'db'),uploadRoot:join(root,'uploads'),demoLogin:false,autoAssessment:false,runModel:async()=>{throw Error('Live model forbidden in UI test');}});server.listen(0,'127.0.0.1');await once(server,'listening');
+const base='http://127.0.0.1:'+server.address().port,browser=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--user-data-dir='+join(root,'profile'),'about:blank'],{windowsHide:true,stdio:'ignore'}),pause=ms=>new Promise(r=>setTimeout(r,ms));let ws;const checks=[],errors=[],failedRequests=[];
+try{
+ let ports;for(let i=0;i<150;i++){try{ports=(await readFile(join(root,'profile','DevToolsActivePort'),'utf8')).trim().split('\n');break;}catch{await pause(100);}}assert.ok(ports,'Chrome debugging startup');
+ ws=new WebSocket('ws://127.0.0.1:'+ports[0]+ports[1]);await once(ws,'open');let seq=0,session;const pending=new Map();
+ ws.addEventListener('message',event=>{const r=JSON.parse(event.data);if(r.method==='Runtime.exceptionThrown')errors.push(r.params.exceptionDetails);if(r.method==='Network.responseReceived'&&r.params.response.url.includes('/api/')&&r.params.response.status>=400)failedRequests.push({url:r.params.response.url,status:r.params.response.status});const p=pending.get(r.id);if(!p)return;pending.delete(r.id);clearTimeout(p.timer);r.error?p.reject(Error(JSON.stringify(r.error))):p.resolve(r.result);});
+ const send=(method,params={},sid=session)=>new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{pending.delete(id);reject(Error(method+' timed out'));},15000);pending.set(id,{resolve,reject,timer});ws.send(JSON.stringify({id,method,params,...(sid?{sessionId:sid}:{})}));});
+ const target=await send('Target.createTarget',{url:'about:blank'},null);session=(await send('Target.attachToTarget',{targetId:target.targetId,flatten:true},null)).sessionId;
+ const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const wait=async expression=>{for(let i=0;i<100;i++){if(await evaluate(expression))return;await pause(100);}throw Error('Not settled: '+expression);};
+ await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Page.navigate',{url:base});await wait('window.PanelWorkflow?.user&&!PanelWorkflow.working');
+
+ const perform=(fn,...args)=>evaluate('('+fn.toString()+')(...'+JSON.stringify(args)+')');
+ const switchActor=async id=>{await pause(300);await perform(async id=>{const f=document.querySelector('#demoAccount');f.innerHTML='<option></option>';f.options[0].value=id;f.value=id;await f.onchange({target:f});},id);await wait('!PanelWorkflow.working');await pause(300);};
+ const go=async view=>{await perform(v=>PanelWorkflow.go(v),view);await wait('!PanelWorkflow.working');await pause(250);};
+ const dialogSubmit=async values=>{await perform(values=>{const f=document.querySelector('#reviewControlsForm');for(const [k,v] of Object.entries(values))f.elements[k].value=v;f.requestSubmit();},values);await wait('!PanelReviewControls.working&&!document.querySelector("#reviewControlsDialog").open');};
+ const check=async(name,fn)=>{await fn();checks.push({name,passed:true});};
+ await switchActor('admin');await go('evaluation-settings');
+ await check('model row requires actual preview and explicit final publication',async()=>{
+  await perform(()=>{const f=document.querySelector('#evaluationSettingsForm');for(const [key,value] of Object.entries({exam:60,manager:40,routine:0,project:0,peer:0}))f.elements[key].value=value;f.requestSubmit();});await wait('!!document.querySelector("[data-publish-settings-draft]")&&!PanelLifecycle.working');
+  await perform(()=>document.querySelector('[data-publish-settings-draft]').click());await wait('!!document.querySelector("#confirmEvaluationModel")&&!PanelLifecycle.working');assert.equal(await perform(()=>document.querySelector('#evaluationModelPreview').hidden),false);
+  const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('evaluation-settings').filter(r=>r.status==='published').length,1);db.close();await perform(()=>document.querySelector('#confirmEvaluationModel').click());await wait('!PanelLifecycle.working&&document.querySelector("#evaluationModelPreview").hidden');
+ });
+ await go('data');await wait('!!document.querySelector("[data-correct-exam]")');
+ await check('exam correction UI retains the previous version',async()=>{await perform(()=>document.querySelector('[data-correct-exam]').click());await dialogSubmit({score:90,reason:'اصلاح مستند نمره آزمایشی'});await wait('document.querySelector("#examCorrectionRows").textContent.includes("۹۰")');const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('exam-result-revision').length,1);db.close();});
+ await switchActor('employee-0');await go('case-review');await wait('!!document.querySelector("#reviewCaseForm")');
+ await check('personnel submits a documented extension',async()=>{await perform((id,date)=>{const f=document.querySelector('#reviewCaseForm');f.elements.activityId.value=id;f.elements.type.value='extension';f.elements.type.dispatchEvent(new Event('change'));f.elements.dueDate.value=date;f.elements.reason.value='قطعی مستند سامانه کاری';f.requestSubmit();},activity.id,extensionDate);await wait('!PanelReviewControls.working&&!!document.querySelector("#reviewCaseRows tbody tr")');});
+ await switchActor('manager');await go('case-review');await wait('!!document.querySelector("[data-case-decision]")');
+ await check('manager approves extension without applying it',async()=>{await perform(()=>document.querySelector('[data-case-decision][data-decision=approve]').click());await dialogSubmit({reason:'تأیید وقوع قطعی کاری'});const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('activity-deadline-extension').length,0);db.close();});
+ await switchActor('admin');await go('case-review');await wait('!!document.querySelector("[data-case-decision][data-decision=approve]")');
+ await check('admin approval applies one independent deadline record',async()=>{await perform(()=>document.querySelector('[data-case-decision][data-decision=approve]').click());await dialogSubmit({reason:'تصویب تمدید مستند موعد'});const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('activity-deadline-extension')[0].dueDate,extensionDate);assert.equal(db.get(activity.id,'activity').dueDate,due);db.close();});
+ await switchActor('employee-0');await go('case-review');await wait('!!document.querySelector("#reviewCaseForm")');
+ await check('independent activity appeal follows both approvals',async()=>{
+  await perform(id=>{const f=document.querySelector('#reviewCaseForm');f.elements.activityId.value=id;f.elements.reason.value='شواهد گزارش درست تفسیر نشده';f.requestSubmit();},activity.id);await wait('!PanelReviewControls.working&&document.querySelectorAll("#reviewCaseRows tbody tr").length===2');
+  await switchActor('manager');await go('case-review');await wait('!!document.querySelector("[data-case-decision][data-decision=approve]")');await perform(()=>document.querySelector('[data-case-decision][data-decision=approve]').click());await dialogSubmit({score:90,reason:'بازبینی شواهد کامل گزارش'});
+  await switchActor('admin');await go('case-review');await wait('!!document.querySelector("[data-case-decision][data-decision=approve]")');await perform(()=>document.querySelector('[data-case-decision][data-decision=approve]').click());await dialogSubmit({reason:'تصویب مستند نمره اصلاحی'});const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('activity-score-amendment')[0].score,90);assert.equal(db.list('review',activity.id)[0].result.finalScore,50);db.close();
+ });
+ await check('activity dialog displays the approved score and extended deadline, preserving AI history',async()=>{await perform(id=>PanelAi.open(id),activity.id);await wait('!!document.querySelector("#activityDetail .activity-score-state")');assert.ok((await perform(()=>document.querySelector('#activityDetail .activity-score-state').textContent)).includes('۹۰'));assert.ok((await perform(()=>document.querySelector('#activityDetail .activity-score-state').textContent)).includes('اصلاح با تأیید ادمین'));assert.ok((await perform(()=>document.querySelector('#activityDetail .activity-detail-meta').textContent)).includes('تمدید مصوب'));const data=await perform(id=>PanelWorkflow.api('/api/activities/'+id+'?summary=1'),activity.id);assert.equal(data.scoreAmendment.score,90);assert.equal(data.deadlineExtension.dueDate,extensionDate);assert.equal(data.reviews[0].result.finalScore,50);assert.equal(data.scoreAmendment.sourceHash,undefined);await perform(()=>document.querySelector('#closeActivityDialog').click());});
+ for(const theme of ['dark','light'])for(const width of [1573,390]){await send('Emulation.setDeviceMetricsOverride',{width,height:884,deviceScaleFactor:1,mobile:false});await perform(t=>document.documentElement.dataset.theme=t,theme);await pause(100);assert.equal(await perform(()=>document.documentElement.scrollWidth>innerWidth+2),false);const shot=await send('Page.captureScreenshot',{format:'png'});await writeFile(join(output,theme+'-'+width+'.png'),Buffer.from(shot.data,'base64'));checks.push({theme,width,overflow:false});}
+ await send('Emulation.setDeviceMetricsOverride',{width:1573,height:884,deviceScaleFactor:1,mobile:false});
+ await switchActor('manager');
+ await check('manager proposes a frozen-quarter component correction',async()=>{await perform(id=>PanelReviewControls.quarterDecision(id,'approve'),appeal.id);await wait('document.querySelector("#reviewControlsDialog").open');await dialogSubmit({score_0:90,reason:'اصلاح مستند آزمون فصل گذشته'});});
+ await switchActor('admin');
+ await check('admin previews delta and publishes one amendment; original lock is unchanged',async()=>{await perform(id=>PanelReviewControls.quarterDecision(id,'approve'),appeal.id);await wait('document.querySelector("#reviewControlsDialog").open');assert.ok((await perform(()=>document.querySelector('#reviewControlsForm').textContent)).includes('اختلاف محاسباتی'));await dialogSubmit({reason:'تصویب نمره و اختلاف محاسباتی'});const db=openStore(join(root,'db'),{readOnly:true});assert.equal(db.list('quarter-result-amendment').length,1);assert.equal(db.list('quarter-result-amendment')[0].lockedSnapshot.calculation.performance,90);assert.equal(JSON.stringify(db.get(locked.id,'quarter-evaluation')),originalLock);db.close();});
+ assert.equal(errors.length,0);assert.equal(failedRequests.length,0);await writeFile(join(output,'report.json'),JSON.stringify({syntheticOnly:true,checks,errors,failedRequests},null,2));console.log(JSON.stringify({checks:checks.length,errors,failedRequests,output}));
+}catch(error){await writeFile(join(output,'failure.json'),JSON.stringify({error:error.stack,checks,errors,failedRequests},null,2));throw error;}
+finally{ws?.close();browser.kill();server.closeAllConnections();await new Promise(r=>server.close(r));await pause(500);assert.equal(resolve(root,'..'),resolve(tmpdir()));assert.ok(root.split(/[\\/]/).at(-1).startsWith('quarterly-browser-'));await rm(root,{recursive:true,force:true,maxRetries:5,retryDelay:500});}

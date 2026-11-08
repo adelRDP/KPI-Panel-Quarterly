@@ -1,4 +1,7 @@
+import {createApprovalSla} from './approval-sla.mjs';
 import {createPeerSurveyImport} from './peer-survey-import.mjs';
+import {finalQuarterSnapshot} from './quarter-final-snapshot.mjs';
+import {createQuarterAmendments} from './quarter-amendments.mjs';
 import {quarterlyEvidenceWindow} from './quarterly-evidence-window.mjs';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { providerConfig } from './providers.mjs';
@@ -49,7 +52,8 @@ export function createOrganizationWorkflow(store,workflow,{runModel,notification
   const respondentToken=(scope,id)=>createHmac('sha256',privacyConfig.value).update(`${scope}:${id}`).digest('hex');
   const employee=id=>{const value=user(id);if(!value||value.role!=='personnel')fail('پرسنل معتبر نیست.');return value;};
   const managerOf=(actor,id)=>{const person=employee(id);if(!workflow.manages(actor,person))fail('فرد در محدوده مدیریت شما نیست.',403);return person;};
-  const audit=(actor,action,entityType,entityId,details={})=>{const event=store.put('audit-event',{actorId:actor?.id||'system',action,entityType,entityId,details,createdAt:new Date().toISOString()});notifications?.fromAudit(event,{record:store.get(entityId,entityType),serviceRespondents});return event;};
+  const approvalSla=createApprovalSla(store,workflow,notifications);
+  const audit=(actor,action,entityType,entityId,details={})=>{approvalSla.observe(entityType,entityId);const event=store.put('audit-event',{actorId:actor?.id||'system',action,entityType,entityId,details,createdAt:new Date().toISOString()});notifications?.fromAudit(event,{record:store.get(entityId,entityType),serviceRespondents});return event;};
   const positionAt=(id,at=today())=>store.list('position-assignment',id).find(p=>p.status==='published'&&p.effectiveFrom<=at&&(!p.effectiveTo||at<p.effectiveTo))||null;
   const designPosition=design=>design.positionId?store.get(design.positionId,'position-assignment'):workflow.assessmentPosition(design.employeeId,design.period);
   const closeouts=createPositionCloseout(store,workflow,{periodBounds,today,audit,busy});
@@ -67,6 +71,7 @@ const people=periodPeople(period).filter(person=>person.role==='personnel'&&pers
 return {period,people:people.map(person=>{const p=workflow.assessmentPosition(person.id,period),b=periodBounds(period),start=p?.effectiveFrom>b.start?p.effectiveFrom:b.start,end=p?.effectiveTo&&p.effectiveTo<b.end?p.effectiveTo:b.end;return {...workflow.publicUser(person),positionId:p?.id||null,assessmentStart:start,evidenceStart:quarterlyEvidenceWindow(store,p,period).start,assessmentLastDay:new Date(Date.parse(end+'T00:00:00Z')-86400000).toISOString().slice(0,10),partialPeriod:start!==b.start||end!==b.end,hasProjects:person.hasProjects===true,policy:modelFor(person,period)};}),...(actor.role==='hr'?{byUnit:Object.fromEntries(store.list('org-unit').filter(unit=>!unit.removedAt).map(unit=>[unit.id,policyForPeriod(store,period,null,unit.id)])),global:policyForPeriod(store,period,null,null)}:{})};
   }
   const activePosition=id=>positionAt(id);
+  const amendments=createQuarterAmendments(store,workflow);
   const jobDesignAnalysis=createJobDesignAnalysis(store,{runModel});
   const isRoleAlignment=design=>['kpi-alignment-v2','kpi-alignment-v3',alignmentContractVersion].includes(design.aiReview?.contractVersion);
   const alignmentCurrent=design=>isRoleAlignment(design)&&design.aiReview.contractVersion===alignmentContractVersion&&jobDesignAnalysis.isCurrentRun(store.get(design.aiReview.runId,'ai-role-run'))&&(!design.aiReview.inheritedFrom||monthCopyProofCurrent(design))&&currentDutiesBasis(design);
@@ -244,6 +249,8 @@ return {period,people:people.map(person=>{const p=workflow.assessmentPosition(pe
     return {positions:positions.map(row=>({...row,archived:archived(row),approvedAt:row.managerReview?.at||row.publishedAt||row.events?.find(e=>e.state==='published')?.at||null})),appeals:listAppeals(actor).map(row=>({...row,archived:archived(row),approvedAt:row.managerReview?.at||row.hrReview?.at||null}))};
   }
   function scanDeadlines(){
+    approvalSla.scan();
+    const surveyAdmin=store.list('workflow-user').find(p=>p.role==='hr');if(surveyAdmin)for(const c of store.list('service-survey-campaign').filter(c=>c.collectionPolicy==='until-deadline-v1'&&c.status==='open'&&!c.removedAt&&campaignDeadline(c)<today())){try{closeServiceCampaign(surveyAdmin,c.id);}catch{/* Finalized/closed sources remain immutable. */}}
     for(const event of store.list('task-deadline').filter(row=>!row.clearedAt&&!row.scoreRuleVersion&&[2,3].includes(row.day)))store.put('task-deadline',{...event,clearedAt:new Date().toISOString(),state:'cleared',supersededBy:'five-business-day-deadline'},event.positionId);
     const generated=[];for(const person of store.list('workflow-user').map(row=>user(row.id)).filter(row=>row?.role==='personnel')){
       if(person.isKpiEligible===false){for(const event of store.list('task-deadline').filter(row=>row.employeeId===person.id&&!row.clearedAt))store.put('task-deadline',{...event,clearedAt:new Date().toISOString(),state:'cleared',reason:'outside-individual-kpi'},event.positionId);continue;}
@@ -620,7 +627,7 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     const allServices=input.employeeId==='all',targets=allServices?periodPeople(period).filter(eligible):[workflow.userAt(employee(input.employeeId).id,period)];if(!targets.length||targets.some(target=>!eligible(target)))fail('نظرسنجی همکاران فقط برای پرسنلی با سهم نظرسنجی در مدل ارزیابی مجاز است.');
     const settingsFor=target=>{const population=serviceRespondents(period,target.unitId).filter(person=>person.id!==target.id).length;if(population<3)fail('برای محرمانگی دست‌کم سه پاسخ‌دهندهٔ مجاز لازم است.',409);const rules=scoreRulesAt(store,{unitId:target.unitId}),minParticipation=Number(input.minParticipation??rules.values.surveyParticipation)/100;if(!Number.isFinite(minParticipation)||minParticipation<0.3||minParticipation>1)fail('درصد مشارکت معتبر نیست.');if(Number(rules.values.surveyResponses)>population)fail('حداقل پاسخ قانون از جمعیت مجاز بیشتر است.',409);return {population,minParticipation,scoreRulesSnapshot:rules};};targets.forEach(settingsFor);
     const question=text(input.question||'کیفیت خدمت ارائه‌شده را چگونه ارزیابی می‌کنید؟',500),existing=new Set(store.list('service-survey-campaign').filter(c=>c.period===period&&c.employeeId&&!c.removedAt&&(!c.positionId||!positionClosed(store,c.positionId))).map(c=>c.employeeId));if(!allServices&&existing.has(targets[0].id))fail('برای این فرد و ماه قبلاً نظرسنجی ثبت شده است.',409);
-    const created=store.transaction(()=>targets.filter(target=>!existing.has(target.id)).map(target=>{const {population,minParticipation,scoreRulesSnapshot}=settingsFor(target),row=store.put('service-survey-campaign',{employeeId:target.id,positionId:workflow.assessmentPosition(target.id,period)?.id||null,employeeName:target.name,unitId:target.unitId,unitName:target.unitName,period,policyVersion:modelFor(target,period).version,question,population,minParticipation,scoreRulesSnapshot,privacyVersion:'peer-min-three-responses-v1',openedAt:null,dueAt:addRuleDays(periodBounds(period).end,Number(scoreRulesSnapshot.values.surveyDays)-1),status:'draft',createdAt:new Date().toISOString(),events:[{state:'draft',by:actor.id,at:new Date().toISOString()}]});audit(actor,'service-survey.drafted','service-survey-campaign',row.id,{period,employeeId:target.id,population});return row;}));return allServices?{createdCount:created.length,skippedCount:targets.length-created.length,campaigns:created}:created[0];
+    const created=store.transaction(()=>targets.filter(target=>!existing.has(target.id)).map(target=>{const {population,minParticipation,scoreRulesSnapshot}=settingsFor(target),row=store.put('service-survey-campaign',{employeeId:target.id,positionId:workflow.assessmentPosition(target.id,period)?.id||null,employeeName:target.name,unitId:target.unitId,unitName:target.unitName,period,policyVersion:modelFor(target,period).version,question,population,minParticipation,scoreRulesSnapshot,privacyVersion:'peer-min-three-responses-v1',collectionPolicy:'until-deadline-v1',openedAt:null,dueAt:addRuleDays(periodBounds(period).end,Number(scoreRulesSnapshot.values.surveyDays)-1),status:'draft',createdAt:new Date().toISOString(),events:[{state:'draft',by:actor.id,at:new Date().toISOString()}]});audit(actor,'service-survey.drafted','service-survey-campaign',row.id,{period,employeeId:target.id,population});return row;}));return allServices?{createdCount:created.length,skippedCount:targets.length-created.length,campaigns:created}:created[0];
   }
   function assertCampaignWritable(campaign){
     if(!campaign)return;
@@ -677,12 +684,12 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     store.transaction(()=>{store.put('service-survey-ballot',{campaignId:campaign.id,respondentHash,createdAt:new Date().toISOString()},campaign.id);store.put('service-survey-response',{campaignId:campaign.id,score:responseScore,createdAt:new Date().toISOString()},campaign.id);});
     const responses=store.list('service-survey-response',campaign.id),required=requiredResponses(campaign);
     let result={status:'collecting',responses:responses.length,required,published:false};
-    if(responses.length>=required){
+    if(responses.length>=required&&campaign.collectionPolicy!=='until-deadline-v1'){
       const aggregate=Math.round((responses.reduce((sum,row)=>sum+row.score,0)/responses.length)*10)/10;const completed=store.put('service-survey-campaign',{...campaign,privacyVersion:'peer-min-three-responses-v1',status:'completed',completedAt:new Date().toISOString(),responseCount:responses.length,aggregate,events:[...campaign.events,{state:'completed',by:'system',at:new Date().toISOString(),responseCount:responses.length}]});
       store.put('service-survey-aggregate',{employeeId:campaign.employeeId,positionId:campaign.positionId||null,period:campaign.period,score:aggregate,campaignId:campaign.id,responseCount:responses.length,source:'peer-survey'},campaign.employeeId);
       audit(actor,'service-survey.completed','service-survey-campaign',campaign.id,{responseCount:responses.length});result={status:'completed',responses:responses.length,required,published:true,aggregate};return {saved:true,...result,campaign:completed};
     }
-    return {saved:true,...result};
+    return {saved:true,...result,quorumReached:responses.length>=required};
   }
   const peerImport=createPeerSurveyImport({store,workflow,secret:privacyConfig.value,canRespond,assertWritable:assertCampaignWritable,respondentToken,deadline:campaignDeadline,today,required:requiredResponses,complete:closeServiceCampaign,audit});
   const importPeerResponses=(actor,input)=>peerImport.run(actor,input);
@@ -704,10 +711,12 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     return {...safe,breakdown:payment.breakdown?.map(({earned,ceiling,...interval})=>interval),oneTimeContribution:payment.oneTimeContribution?((({earned,ceiling,...component})=>component)(payment.oneTimeContribution)):null};
   }
   function managerQuarterView(result){
-    if(!result)return result;return {...result,monthRows:result.monthRows?.map(row=>({...row,components:row.components?.map(({earned,ceiling,...component})=>component)})),quarterPay:managerQuarterPayment(result.quarterPay),calculation:managerQuarterCalculation(result.calculation)};
+    if(!result)return result;const {sourceSnapshot,...safe}=result;return {...safe,monthRows:result.monthRows?.map(row=>({...row,components:row.components?.map(({earned,ceiling,...component})=>component)})),quarterPay:managerQuarterPayment(result.quarterPay),calculation:managerQuarterCalculation(result.calculation)};
   }
 
   function quarterResult(actor,quarter,id){
+    if(!workflow.canRead(actor,id))fail('دسترسی به فصل این پرسنل مجاز نیست.',403);
+    const final=finalQuarterSnapshot(store,id,quarter);if(final){const result={...final.snapshot,status:'locked',canFinalize:false,evaluationId:final.evaluationId};return actor.role==='manager'?managerQuarterView(result):result;}
     const result=quarterlyResult(store,workflow,actor,quarter,id,{busy,today:today()});
     return actor.role==='manager'?managerQuarterView(result):result;
   }
@@ -722,7 +731,7 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     const resultFor=id=>{
       const evaluation=store.list('quarter-evaluation',id).find(row=>row.quarter===quarter&&['hr_review','locked'].includes(row.status));
       if(!evaluation)return quarterResult(actor,quarter,id);
-      const result=evaluation.status==='locked'?evaluation.lockedSnapshot:quarterResult(actor,quarter,id),status=evaluation.status;
+      const result=evaluation.status==='locked'?finalQuarterSnapshot(store,id,quarter).snapshot:quarterResult(actor,quarter,id),status=evaluation.status;
       if(actor.role==='manager')return {...managerQuarterView(result),status,canFinalize:false,evaluationId:evaluation.id};
       return {...result,status,canFinalize:false,evaluationId:evaluation.id};
     };
@@ -750,7 +759,7 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     role(actor,['hr']);quarter=quarterId(quarter);const evaluations=store.list('quarter-evaluation').filter(row=>row.quarter===quarter&&row.status==='locked');if(!evaluations.length)fail('برای این فصل ارزیابی قفل‌شده‌ای وجود ندارد.',409);
     const seenEmployees=new Set();for(const row of evaluations){if(seenEmployees.has(row.employeeId))fail('برای یک فرد در این فصل بیش از یک نتیجهٔ قفل‌شده وجود دارد؛ تا بررسی سابقهٔ تکراری، خروجی نهایی ساخته نمی‌شود.',409);seenEmployees.add(row.employeeId);}
     const xml=value=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-    const rows=[['شناسه پرسنل','نام','واحد','سمت','فصل','امتیاز عملکرد','KPI دریافتی (تومان)','سقف KPI (تومان)','نسخه فرمول','شناسه ارزیابی'],...evaluations.map(row=>{const snapshot=row.lockedSnapshot,person={...row.snapshot?.employee,...snapshot.employee};return [row.employeeId,person.name??'ثبت نشده در سابقه',person.unitName??'ثبت نشده در سابقه',person.jobTitle??person.level??'ثبت نشده در سابقه',quarter,snapshot.calculation?.performance??'',snapshot.quarterPay?.earned??'',snapshot.quarterPay?.ceiling??'',snapshot.quarterPay?.formulaVersion||'',row.id];})];
+    const rows=[['شناسه پرسنل','نام','واحد','سمت','فصل','امتیاز عملکرد','KPI دریافتی (تومان)','سقف KPI (تومان)','نسخه فرمول','شناسه ارزیابی','نسخه اصلاحی','اختلاف KPI نسبت به نتیجه اولیه (تومان)'],...evaluations.map(row=>{const official=finalQuarterSnapshot(store,row.employeeId,quarter),snapshot=official.snapshot,person={...row.snapshot?.employee,...snapshot.employee};return [row.employeeId,person.name??'ثبت نشده در سابقه',person.unitName??'ثبت نشده در سابقه',person.jobTitle??person.level??'ثبت نشده در سابقه',quarter,snapshot.calculation?.performance??'',snapshot.quarterPay?.earned??'',snapshot.quarterPay?.ceiling??'',snapshot.quarterPay?.formulaVersion||'',row.id,official.amendmentSequence||0,(snapshot.quarterPay?.earned||0)-(row.lockedSnapshot.quarterPay?.earned||0)];})];
     const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows.map((row,i)=>`<row r="${i+1}">${row.map((value,j)=>`<c r="${String.fromCharCode(65+j)}${i+1}" ${typeof value==='number'?'':'t="inlineStr"'}>${typeof value==='number'?`<v>${value}</v>`:`<is><t>${xml(value)}</t></is>`}</c>`).join('')}</row>`).join('')}</sheetData></worksheet>`;
     const files={'[Content_Types].xml':'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>','_rels/.rels':'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>','xl/workbook.xml':'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Final KPI" sheetId="1" r:id="rId1"/></sheets></workbook>','xl/_rels/workbook.xml.rels':'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>','xl/worksheets/sheet1.xml':sheet};
     audit(actor,'quarter.excel-exported','quarter',quarter,{count:evaluations.length});return {filename:`kpi-final-${quarter}.xlsx`,data:zipSync(Object.fromEntries(Object.entries(files).map(([name,content])=>[name,strToU8(content)])))};
@@ -803,12 +812,19 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     let rows;if(actor.role==='personnel')rows=store.list('quarter-appeal',actor.id);else if(actor.role==='hr')rows=store.list('quarter-appeal');else if(actor.role==='manager')rows=store.list('quarter-appeal').filter(a=>workflow.manages(actor,user(a.employeeId)));else return fail('دسترسی به اعتراض‌ها مجاز نیست.',403);
     return rows.map(appeal=>({...appeal,files:store.list('quarter-appeal-file',appeal.id)}));
   }
-  function reviewAppeal(actor,id,input){
-    const appeal=store.get(id,'quarter-appeal');if(!appeal)fail('درخواست اعتراض پیدا نشد.',404);
-    if(actor.role==='manager'){if(!workflow.manages(actor,user(appeal.employeeId)))fail('فرد در محدوده مدیریت شما نیست.',403);if(appeal.status!=='manager_review')fail('درخواست در صف مدیر نیست.',409);if(input.decision==='approve'&&appeal.scoreRulesSnapshot?.values.appealEvidence==='required'&&!store.list('quarter-appeal-file',appeal.id).length)fail('طبق قانون مؤثر، حداقل یک فایل مستند پیش از تأیید لازم است.',409);if(!['approve','return','reject'].includes(input.decision))fail('تصمیم مدیر معتبر نیست.');const reason=text(input.reason||'',2000,input.decision!=='approve');const status=input.decision==='approve'?'hr_review':input.decision==='return'?'needs_revision':'rejected';const updated=store.put('quarter-appeal',{...appeal,status,managerReview:{actorId:actor.id,decision:input.decision,reason,at:new Date().toISOString()},events:[...appeal.events,{state:status,by:actor.id,at:new Date().toISOString()}]},appeal.employeeId);audit(actor,'quarter.appeal-manager-review','quarter-appeal',id,{decision:input.decision});return updated;}
-    role(actor,['hr']);if(appeal.status!=='hr_review')fail('تأیید مدیر لازم است.',409);if(!['approve','return','reject'].includes(input.decision))fail('تصمیم HR معتبر نیست.');const reason=text(input.reason||'',2000,input.decision!=='approve');
-    const updated=store.put('quarter-appeal',{...appeal,status:input.decision==='approve'?'approved':input.decision==='return'?'needs_revision':'rejected',hrReview:{actorId:actor.id,decision:input.decision,reason,at:new Date().toISOString()},events:[...appeal.events,{state:input.decision,by:actor.id,at:new Date().toISOString()}]},appeal.employeeId);audit(actor,'quarter.appeal-hr-review','quarter-appeal',id,{decision:input.decision});return updated;
-  }
+  function appealCorrection(actor,id,preview=false){const appeal=appealFor(actor,id);return preview?amendments.preview(actor,appeal):amendments.fields(actor,appeal);}
+  function reviewAppeal(actor,id,input){return store.transaction(()=>{
+    const appeal=appealFor(actor,id);if(!['approve','return','reject'].includes(input.decision))fail('تصمیم معتبر نیست.');const reason=text(input.reason||'',2000),at=new Date().toISOString();
+    if(actor.role==='manager'){
+      if(user(appeal.employeeId)?.managerId!==actor.id||appeal.status!=='manager_review')fail('درخواست در صف مدیر مستقیم شما نیست.',403);
+      if(input.decision==='approve'&&appeal.scoreRulesSnapshot?.values.appealEvidence==='required'&&!store.list('quarter-appeal-file',appeal.id).length)fail('حداقل یک فایل مستند پیش از تأیید لازم است.',409);
+      const proposal=input.decision==='approve'?amendments.propose(actor,appeal,input):null,status=input.decision==='approve'?'hr_review':input.decision==='return'?'needs_revision':'rejected';
+      const updated=store.put('quarter-appeal',{...appeal,status,correctionProposal:proposal,managerReview:{actorId:actor.id,decision:input.decision,reason,at},events:[...appeal.events,{state:status,by:actor.id,at}]},appeal.employeeId);audit(actor,'quarter.appeal-manager-review','quarter-appeal',id,{decision:input.decision});return updated;
+    }
+    role(actor,['hr']);if(appeal.status!=='hr_review')fail('تأیید مدیر لازم است.',409);
+    const result=input.decision==='approve'?amendments.approve(actor,appeal,input):null,status=input.decision==='approve'?'approved':input.decision==='return'?'needs_revision':'rejected';
+    const updated=store.put('quarter-appeal',{...appeal,status,...(result?{amendment:{id:result.id,sequence:result.sequence}}:{}),hrReview:{actorId:actor.id,decision:input.decision,reason,at},events:[...appeal.events,{state:status,by:actor.id,at}]},appeal.employeeId);audit(actor,'quarter.appeal-hr-review','quarter-appeal',id,{decision:input.decision,amendmentId:result?.id});return updated;
+  });}
 
   const sourceCatalog=actor=>{role(actor,['hr']);return [
     {id:'local-file',type:'file',status:'available',format:'XLSX/CSV/JSON',owner:'منابع انسانی',note:'ورودی این نسخه با اعتبارسنجی و قرنطینهٔ رکورد نامعتبر ذخیره می‌شود.'},
@@ -838,5 +854,5 @@ return store.transaction(()=>{store.put('workflow-user',person);let position;if(
     return store.get(id,'exam-import-batch');
   }
 
-  return {importPeerResponses,listPeerImports,positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,settlementPreview,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
+  return {approvalDeadlines:approvalSla.list,appealCorrection,importPeerResponses,listPeerImports,positionCloseoutPreview,closeoutHistory,resubmitAppeal,settlementPeople,settlementPreview,registerSettlement,personnelRequests,removeUnit,removeSection,updatePositionDuties,aiCapabilities,jobAnalysisState,analyzeJobPosition,acceptDesignChange,activePosition,positionAt,evaluationModels,listPositions,units,createUnit,sections,createSection,chart,positionProposals,proposePosition,createPerson,revisePosition,reviewPosition,approvePosition,scanDeadlines,taskDeadlines,submitDesign,saveDesignDraft,openDesignCorrectionDraft,saveDesignClarifications,consolidateDesignDrafts,publishDesignDraft,copyDesignToNextMonth,removeDesign,reviseDesign,listDesigns,analyzeDesign,managerReviewDesign,hrReviewDesign,createServiceCampaign,publishServiceCampaign,publishServiceCampaignMonth,removeServiceCampaign,removeServiceCampaignMonth,serviceCampaigns,submitServiceResponse,closeServiceCampaign,quarterResult,quarterProgress,quarterTeam,submitQuarter,approveQuarter,listEvaluations,finalExcel,submitAppeal,listAppeals,reviewAppeal,canUploadAppealFile,addAppealFile,appealFile,sourceCatalog,listExamImports,removeExamImport,importExamBatch,audit};
 }

@@ -43,7 +43,7 @@ export function createPeerSurveyImport({store,workflow,secret,canRespond,assertW
    for(const r of shuffle(accepted))store.put('service-survey-ballot',{campaignId:r.campaignId,respondentHash:r.respondentHash,createdAt},r.campaignId);
    for(const r of shuffle(accepted))store.put('service-survey-response',{campaignId:r.campaignId,score:r.score,source:'excel-import',createdAt},r.campaignId);
    let completedCount=0;
-   for(const campaign of campaigns.values())if(store.list('service-survey-response',campaign.id).length>=required(campaign)){complete(actor,campaign.id);completedCount++;}
+   for(const campaign of campaigns.values())if(campaign.collectionPolicy!=='until-deadline-v1'&&store.list('service-survey-response',campaign.id).length>=required(campaign)){complete(actor,campaign.id);completedCount++;}
    const batch=store.put('peer-survey-import',{id,period:input.period,fileName:input.fileName,payloadHash,rowCount:rows.length,importedCount:accepted.length,quarantined,campaignCount:campaigns.size,completedCount,status:quarantined.length?'partial':'complete',createdAt,createdBy:actor.id});
    audit(actor,'service-survey.imported','peer-survey-import',id,{period:input.period,importedCount:accepted.length,quarantinedCount:quarantined.length});
    return batch;

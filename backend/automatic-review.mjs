@@ -1,3 +1,4 @@
+import {approvedActivityDeadline} from './activity-exceptions.mjs';
 import {quarterlyEvidenceWindow,QUARTER_EVIDENCE_POLICY} from './quarterly-evidence-window.mjs';
 import {providerConfig} from './providers.mjs';
 import {sha256,POLICY_VERSION,finalizeReview} from './evaluation.mjs';
@@ -18,7 +19,8 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  const retention=createReviewRetention(store);
  const docs=a=>store.list('document',a.id).filter(d=>!d.archivedAt);
  const task=a=>{
-  const snapshot=pick(a,taskKeys),position=a.positionId?store.get(a.positionId,'position-assignment'):null;
+  const snapshot=pick(a,taskKeys),extension=approvedActivityDeadline(store,a),position=a.positionId?store.get(a.positionId,'position-assignment'):null;
+  if(extension){snapshot.originalDueDate=a.dueDate;snapshot.dueDate=extension.dueDate;snapshot.deadlineExtensionId=extension.id;}
   if(/^14\d{2}-Q[1-4]$/.test(a.period||''))snapshot.evidenceWindowPolicy=QUARTER_EVIDENCE_POLICY;
   if(/^14\d{2}-Q[1-4]$/.test(a.period||'')&&position?.status==='published'&&position.employeeId===a.ownerId){
    const window=quarterlyEvidenceWindow(store,position,a.period);

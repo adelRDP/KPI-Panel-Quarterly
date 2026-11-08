@@ -53,6 +53,7 @@ export function createPositionCloseout(store,workflow,{periodBounds,today,audit,
    const slice=calculatePositionSlice(snapshot,{start,end,bounds,positionId:old.id});months.push(slice);
    if(slice.positionReviewRequired)blockers.push(`${p}: جابه‌جایی تاریخی دیگری در این ماه هنوز تفکیک و نهایی نشده است.`);
    if(!slice.complete)blockers.push(`${p}: امتیازهای ${slice.components.filter(c=>c.applicable&&c.score===null).map(c=>c.name).join('، ')} تکمیل نشده‌اند.`);
+   if(store.list('review-case').some(r=>slice.assignments.some(a=>a.id===r.activityId)&&['manager_review','hr_review','needs_revision'].includes(r.status)))blockers.push(`${p}: درخواست بازبینی یا تمدید شاخص هنوز تعیین تکلیف نشده است.`);
    if(slice.assignments.some(a=>a.score===null))blockers.push(`${p}: همهٔ شاخص‌های تخصیص‌یافته باید امتیاز نهایی معتبر داشته باشند، حتی اگر سهم مدل آن‌ها صفر باشد.`);
    if(store.list('review').some(r=>slice.assignments.some(a=>a.id===(r.activityId||r.activitySnapshot?.id))&&['queued','running'].includes(r.status))||store.list('activity-human-review').some(r=>slice.assignments.some(a=>a.id===r.activityId)&&['manager_review','hr_review'].includes(r.status)))blockers.push(`${p}: بررسی شاخص هنوز در حال انجام است.`);
    if(store.list('ai-preprocess-attempt').some(r=>r.status==='running'&&slice.assignments.some(a=>a.id===r.activitySnapshot?.id)))blockers.push(`${p}: پردازش مستند هنوز پایان نیافته است.`);

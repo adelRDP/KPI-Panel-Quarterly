@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-const allowedViews=new Set(['dashboard','assignments','projectAssignments','incoming','team','surveys','tasks','quarters','organization','position-review','data','appeals','chart','notes','chat']);
+const allowedViews=new Set(['case-review','dashboard','assignments','projectAssignments','incoming','team','surveys','tasks','quarters','organization','position-review','data','appeals','chart','notes','chat']);
 const notificationId=(eventKey,recipientId)=>createHash('sha256').update(`${eventKey}:${recipientId}`).digest('hex');
 
 export function createNotificationCenter(store,workflow,{announcements}={}){

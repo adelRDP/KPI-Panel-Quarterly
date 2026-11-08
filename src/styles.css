@@ -1151,8 +1151,15 @@ select option,select optgroup { background: var(--color-select-option); color: v
 #scoreSettingsStatus { min-height:1.8em; }
 #scoreSettingsStatus.is-error { color:var(--color-error); }
 #scorePreviewResult .table-wrap { overflow-x:auto; }
-#scorePreviewResult table { width:100%; }
+#scorePreviewResult table { width:100%;min-width:480px;table-layout:fixed;border-collapse:collapse; }
+#scorePreviewResult th,#scorePreviewResult td { text-align:center;vertical-align:middle;padding:10px 12px;border-bottom:1px solid var(--color-border-subtle);overflow-wrap:anywhere;font-variant-numeric:tabular-nums; }
+#scorePreviewResult th { background:var(--color-surface-subtle); }
 #scoreRulesForm textarea { width:100%; }
+.review-controls-dialog { width:min(760px,calc(100vw - 32px)); }
+#reviewControlsForm,#reviewCaseForm { display:grid;gap:14px;min-width:0; }
+#reviewControlsForm label,#reviewCaseForm label { display:grid;gap:7px;min-width:0; }
+#reviewControlsForm input,#reviewControlsForm textarea,#reviewCaseForm input,#reviewCaseForm textarea,#reviewCaseForm select { width:100%;min-width:0;padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-subtle);color:var(--color-text);font:inherit; }
+#reviewControlsStatus.is-error,#reviewDialogStatus { color:var(--color-error); }
 .score-breakdown { display:flex;flex-wrap:wrap;gap:12px;padding:14px;border:1px solid var(--color-border);border-radius:12px; }
 
 /* Single-row header; the period popover is a body portal, outside the scroll strip. */

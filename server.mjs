@@ -1,3 +1,5 @@
+import {createReviewCases} from './backend/review-cases.mjs';
+import {approvedActivityDeadline,approvedActivityScore} from './backend/activity-exceptions.mjs';
 import {createPositionHistory} from './backend/position-history.mjs';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, unlink, stat } from 'node:fs/promises';
@@ -32,6 +34,7 @@ import {createAuthSecurity} from './backend/auth-security.mjs';
 import {createAuthThrottle} from './backend/auth-throttle.mjs';
 import {panelInstance} from './backend/panel-health.mjs';
 import {createBackupScheduler} from './backend/panel-backup.mjs';
+import {createExamCorrections} from './backend/exam-corrections.mjs';
 
 export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,publicOrigin,publicOrigins=[],runModel=assess,autoAssessment=true,archiveRejectedEvidence=true,demoLogin,authMode=process.env.PANEL_AUTH_MODE}={}) {
   if(authMode!==undefined&&!['demo','local','hybrid'].includes(authMode))throw Error('PANEL_AUTH_MODE must be demo, local or hybrid');
@@ -62,6 +65,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   const sessions={get:token=>{const row=personalSessions?.get(token)||(authMode!=='local'?sharedSessions.get(token):null);return row?{...row,authKind:row.mode==='local'?'local':'demo'}:undefined;},set:(token,value)=>(value.authKind==='local'?personalSessions:sharedSessions).set(token,value),delete:token=>{sharedSessions.delete(token);personalSessions?.delete(token);}};
   organization.consolidateDesignDrafts();
   const aiLog=createAiLog(store,workflow);
+  const reviewCases=createReviewCases(store,workflow,{audit:organization.audit,notifications,busy});
+  const examCorrections=createExamCorrections(store,workflow,{audit:organization.audit,notifications});
   const personalNotes=createPersonalNotes(store,workflow,notifications);
   const scoreSettings=createScoreSettings(store);
   const chat=createChat(store,workflow,notifications);
@@ -106,6 +111,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   publicFiles.add('src/chat-ui.js');
   publicFiles.add('src/search-ui.js');
   publicFiles.add('src/score-settings-ui.js');
+  publicFiles.add('src/review-controls-ui.js');
   publicFiles.add('src/account-security-ui.js');
   publicFiles.add('src/peer-survey-import-ui.js');
   for(const name of ['kpi-sidebar-background','kpi-sidebar-background-day','kpi-holding-transparent','holding-5040-collapsed'])publicFiles.add(`src/assets/${name}.webp`);
@@ -235,11 +241,19 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/org/score-settings'&&req.method==='GET')return send(res,200,scoreSettings.state(actor));
         const scoreAction=path.match(/^\/api\/org\/score-settings\/(save|preview|publish|discard)$/);
         if(scoreAction&&req.method==='POST')return send(res,200,scoreSettings[scoreAction[1]](actor,JSON.parse((await body(req)).toString('utf8'))));
+        if(path==='/api/approval-deadlines'&&req.method==='GET')return send(res,200,organization.approvalDeadlines(actor));
+        if(path==='/api/review-cases'&&req.method==='GET')return send(res,200,reviewCases.list(actor));
+        if(path==='/api/review-cases'&&req.method==='POST')return send(res,201,reviewCases.create(actor,JSON.parse((await body(req,8192)).toString('utf8'))));
+        const reviewCase=path.match(/^\/api\/review-cases\/([\w-]+)\/(decision|resubmit|cancel)$/);
+        if(reviewCase&&req.method==='POST')return send(res,200,reviewCases[reviewCase[2]==='decision'?'decide':reviewCase[2]](actor,reviewCase[1],JSON.parse((await body(req,8192)).toString('utf8'))));
+        if(path==='/api/org/exams/results'&&req.method==='GET')return send(res,200,examCorrections.list(actor,url.searchParams.get('period')));
+        const examCorrection=path.match(/^\/api\/org\/exams\/results\/([\w-]+)\/correction$/);
+        if(examCorrection&&req.method==='POST')return send(res,200,examCorrections.correct(actor,examCorrection[1],JSON.parse((await body(req,8192)).toString('utf8'))));
         if(path==='/api/org/evaluation-settings'&&req.method==='GET')return send(res,200,evaluationSettings.state(actor));
         if(path==='/api/org/evaluation-settings/draft'&&req.method==='POST')return send(res,200,evaluationSettings.saveDraft(actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/evaluation-settings/draft/delete'&&req.method==='POST')return send(res,200,evaluationSettings.deleteDraft(actor,JSON.parse((await body(req)).toString('utf8')||'{}').id));
-        if(path==='/api/org/evaluation-settings/preview'&&req.method==='POST')return send(res,200,evaluationSettings.preview(actor,JSON.parse((await body(req)).toString('utf8')||'{}').id));
-        if(path==='/api/org/evaluation-settings/publish'&&req.method==='POST')return send(res,200,evaluationSettings.publish(actor,JSON.parse((await body(req)).toString('utf8')||'{}').id));
+        if(path==='/api/org/evaluation-settings/preview'&&req.method==='POST')return send(res,200,evaluationSettings.preview(actor,JSON.parse((await body(req)).toString('utf8')||'{}')));
+        if(path==='/api/org/evaluation-settings/publish'&&req.method==='POST')return send(res,200,evaluationSettings.publish(actor,JSON.parse((await body(req)).toString('utf8')||'{}')));
         if(path==='/api/org/evaluation-settings/published/delete'&&req.method==='POST')return send(res,200,evaluationSettings.deletePublished(actor,JSON.parse((await body(req)).toString('utf8')||'{}').id));
         if(path==='/api/org/units'&&req.method==='GET')return send(res,200,organization.units(actor));
         if(path==='/api/org/incoming/archive'&&req.method==='GET')return send(res,200,incomingArchive.list(actor,{type:url.searchParams.get('type')||'all',search:url.searchParams.get('search')||'',page:url.searchParams.get('page')||'1'}));
@@ -315,6 +329,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         }
         const appealResubmit=path.match(/^\/api\/org\/appeals\/([\w-]+)\/resubmit$/);
         if(appealResubmit&&req.method==='POST')return send(res,200,organization.resubmitAppeal(actor,appealResubmit[1],JSON.parse((await body(req)).toString('utf8'))));
+        const appealCorrection=path.match(/^\/api\/org\/appeals\/([\w-]+)\/(correction|correction-preview)$/);
+        if(appealCorrection&&req.method==='GET')return send(res,200,organization.appealCorrection(actor,appealCorrection[1],appealCorrection[2]==='correction-preview'));
         const appealReview=path.match(/^\/api\/org\/appeals\/([\w-]+)\/review$/);
         if(appealReview&&req.method==='POST')return send(res,200,organization.reviewAppeal(actor,appealReview[1],JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/org/evaluation-models'&&req.method==='GET')return send(res,200,organization.evaluationModels(actor,url.searchParams.get('period')||workflow.currentPeriod));
@@ -373,8 +389,8 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(req.method!=='GET'&&workflow.user(activity.ownerId)?.role==='personnel'&&(workflow.user(activity.ownerId)?.isSettled||(/^14\d{2}-Q[1-4]$/.test(activity.period)?workflow.userAt(activity.ownerId,activity.period):workflow.user(activity.ownerId))?.isKpiEligible===false))return send(res,403,{error:'این فرد خارج از فرایند KPI است.'});
         if(match[2]==='quota'&&req.method==='GET'&&!match[3])return store.withReadCache(()=>send(res,200,url.searchParams.get('humanReview')==='1'?{submissionQuota:quotaFor(activity),humanReview:activityHuman.state(actor,activity)}:quotaFor(activity)));
         if(!match[2]&&req.method==='GET')return store.withReadCache(()=>{
-          const documents=store.list('document',activity.id).filter(d=>!d.archivedAt),reviews=store.list('review',activity.id),latest=reviews.find(r=>r.status==='done');
-          return send(res,200,{activity,documents:documents.map(({path,...d})=>({...d,extractionHash:sha256(JSON.stringify(d.extraction))})),reviews:url.searchParams.get('summary')==='1'?reviews.map(reviewSummary):reviews,history:activityHistory.list(activity),submissionQuota:quotaFor(activity),humanReview:activityHuman.state(actor,activity),humanFinal:activityHumanFinal(store,activity)?.result||null,...(latest?{reviewMatchesCurrentEvidence:reviewEvidenceMatches(store,activity,latest)}:{})});
+          const documents=store.list('document',activity.id).filter(d=>!d.archivedAt),reviews=store.list('review',activity.id),latest=reviews.find(r=>r.status==='done'),amendment=approvedActivityScore(store,activity),extension=approvedActivityDeadline(store,activity);
+          return send(res,200,{activity,scoreAmendment:amendment?{id:amendment.id,score:amendment.score,originalScore:amendment.originalScore,approvedAt:amendment.approvedAt}:null,deadlineExtension:extension?{id:extension.id,dueDate:extension.dueDate,previousDueDate:extension.previousDueDate,approvedAt:extension.approvedAt}:null,documents:documents.map(({path,...d})=>({...d,extractionHash:sha256(JSON.stringify(d.extraction))})),reviews:url.searchParams.get('summary')==='1'?reviews.map(reviewSummary):reviews,history:activityHistory.list(activity),submissionQuota:quotaFor(activity),humanReview:activityHuman.state(actor,activity),humanFinal:activityHumanFinal(store,activity)?.result||null,...(latest?{reviewMatchesCurrentEvidence:reviewEvidenceMatches(store,activity,latest)}:{})});
         });
         const documents=store.list('document',activity.id).filter(d=>!d.archivedAt);
         const batchId=url.searchParams.get('batchId')||randomUUID();
