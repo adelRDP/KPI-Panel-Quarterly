@@ -33,6 +33,41 @@ const roleViews={announcements:['hr'],managerDashboard:['manager'],managerPerson
   function syncQuarterUnits(){const field=$('#quarterUnitFilter'),selected=field.value,units=new Map(quarterRows.map(row=>[quarterUnitKey(row.employee),quarterUnitLabel(row.employee)]));field.innerHTML='<option value="all">همهٔ واحدها</option>'+[...units].sort((a,b)=>a[1].localeCompare(b[1],'fa')).map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');field.value=units.has(selected)?selected:'all';}
   function filterQuarterRows(){renderQuarters();if(user?.role==='hr')renderQuarterInbox();}
   quarterFilters.onsubmit=event=>{event.preventDefault();filterQuarterRows();};$('#quarterPersonnelSearch').addEventListener('input',filterQuarterRows);$('#quarterUnitFilter').addEventListener('change',filterQuarterRows);$('#quarterFiltersClear').onclick=()=>{quarterFilters.reset();filterQuarterRows();};
+  let quarterDefects=[],quarterDefectsContext=null,quarterDefectsState=null;
+  const defectsContext=(quarter=quarterNow())=>JSON.stringify([user?.id,user?.role,quarter]);
+  const quarterDefectsDialog=document.createElement('dialog');quarterDefectsDialog.id='quarterDefectsDialog';quarterDefectsDialog.className='activity-dialog quarter-defects-dialog';quarterDefectsDialog.setAttribute('aria-labelledby','quarterDefectsTitle');quarterDefectsDialog.setAttribute('aria-describedby','quarterDefectsMeta');quarterDefectsDialog.setAttribute('aria-modal','true');
+  quarterDefectsDialog.innerHTML='<header class="activity-dialog-header"><div><h2 id="quarterDefectsTitle">نواقص ارزیابی فصل</h2><p id="quarterDefectsMeta" class="workflow-muted"></p></div><button type="button" class="secondary-button" data-close-quarter-defects aria-label="بستن نواقص">×</button></header><div class="activity-dialog-body" tabindex="0"></div><footer class="activity-dialog-footer"><button type="button" class="secondary-button" data-close-quarter-defects>بستن</button></footer>';document.body.append(quarterDefectsDialog);
+  const quarterDefectsBackdrop=document.createElement('div');quarterDefectsBackdrop.className='activity-dialog-backdrop';quarterDefectsBackdrop.hidden=true;document.body.append(quarterDefectsBackdrop);
+  function closeQuarterDefects(restoreFocus=true){
+    if(!quarterDefectsState&&!quarterDefectsDialog.open)return;
+    const previous=quarterDefectsState;quarterDefectsState=null;
+    if(typeof quarterDefectsDialog.close==='function'&&quarterDefectsDialog.open)quarterDefectsDialog.close();else quarterDefectsDialog.removeAttribute('open');
+    quarterDefectsBackdrop.hidden=true;document.body.classList.remove('quarter-defects-open');const shell=$('.app-shell');if(shell&&previous)shell.inert=previous.backgroundInert;
+    quarterDefectsDialog.querySelector('.activity-dialog-body').replaceChildren();$('#quarterDefectsMeta').textContent='';
+    if(restoreFocus&&previous)(previous.opener?.isConnected?previous.opener:$('#quarterCards [data-quarter-defects]'))?.focus();
+  }
+  function renderQuarterDefects(){
+    if(!quarterDefectsState)return;
+    if(!['hr','manager'].includes(user?.role)||quarterDefectsState.context!==defectsContext()||quarterDefectsContext!==defectsContext()||!quarterDefects.length){closeQuarterDefects(false);return;}
+    $('#quarterDefectsMeta').textContent=window.PanelWorkflow.quarterLabel(quarterNow())+' · '+fa.format(quarterDefects.length)+' مورد در فهرست فعلی';
+    quarterDefectsDialog.querySelector('.activity-dialog-body').innerHTML='<p class="workflow-muted">موارد ناقص به‌جای صفر، متوقف می‌شوند:</p><ul class="quarter-defects-list">'+quarterDefects.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>';
+  }
+  function openQuarterDefects(opener){
+    if(!['hr','manager'].includes(user?.role)||!quarterView.classList.contains('active')||quarterDefectsContext!==defectsContext()||!quarterDefects.length)return;
+    closeQuarterDefects(false);const shell=$('.app-shell');quarterDefectsState={opener,context:defectsContext(),backgroundInert:!!shell?.inert};renderQuarterDefects();
+    if(typeof quarterDefectsDialog.showModal==='function')quarterDefectsDialog.showModal();else{quarterDefectsDialog.setAttribute('open','');quarterDefectsBackdrop.hidden=false;}
+    if(shell)shell.inert=true;document.body.classList.add('quarter-defects-open');quarterDefectsDialog.querySelector('[data-close-quarter-defects]').focus();
+  }
+  $('#quarterCards').addEventListener('click',event=>{const button=event.target.closest('[data-quarter-defects]');if(button&&!button.disabled)openQuarterDefects(button);});
+  quarterDefectsDialog.addEventListener('click',event=>{if(event.target.closest('[data-close-quarter-defects]'))closeQuarterDefects();else if(event.target===quarterDefectsDialog){const r=quarterDefectsDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeQuarterDefects();}});
+  quarterDefectsBackdrop.onclick=()=>closeQuarterDefects();quarterDefectsDialog.addEventListener('cancel',event=>{event.preventDefault();closeQuarterDefects();});quarterDefectsDialog.addEventListener('close',()=>{if(!quarterDefectsDialog.open)closeQuarterDefects(false);});
+  quarterDefectsDialog.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeQuarterDefects();return;}
+    if(event.key!=='Tab')return;const controls=[...quarterDefectsDialog.querySelectorAll('button:not(:disabled),[tabindex="0"]')],first=controls[0],last=controls.at(-1);
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+  });
+  window.addEventListener('panel:session',()=>closeQuarterDefects(false));window.addEventListener('panel:view',event=>{if(event.detail!=='quarters')closeQuarterDefects(false);});
+  $('#workflowPeriod').addEventListener('change',()=>{closeQuarterDefects(false);quarterDefects=[];quarterDefectsContext=null;});
   const designWeekdays=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
   const designTargetUnits=['عدد','مورد','گزارش','فایل','سند','درخواست','تماس','جلسه','ساعت','دقیقه','صفحه','محصول','پروژه'];
   taskView.innerHTML=`<div class="page-heading"><div><p class="eyebrow">مدیر · تعریف براساس شرح وظایف</p><h1>تعریف شاخص‌های KPI</h1><p>ابتدا پیش‌نویس را ذخیره کنید؛ انتشار آن را مستقیم برای بررسی AI می‌فرستد. تخصیص به پرسنل همچنان پس از تأیید مدیر و ادمین انجام می‌شود.</p></div></div><div><form id="designForm" class="panel settings-card" novalidate><h2>تعریف شاخص</h2><p id="designEditingNote" class="workflow-muted" hidden></p>
@@ -279,6 +314,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
   window.addEventListener('panel:view',()=>syncNavigationGroups(true));
 
   function applySession(next){
+    if(user?.id!==next?.id||user?.role!==next?.role){closeQuarterDefects(false);quarterDefects=[];quarterDefectsContext=null;}
     if($('#positionCloseoutHistory')){$('#positionCloseoutHistory').replaceChildren();$('#positionCloseoutPanel').hidden=!['hr','personnel'].includes(next?.role);}
     if(user?.id!==next?.id){loadedContextKey=null;renderedDesignTables=new WeakMap();}
     refreshVersion++;
@@ -445,7 +481,7 @@ function camelView(id){return {'manager-dashboard':'managerDashboard','manager-p
     quarterFilters.hidden=!['hr','manager'].includes(user.role);
     $('#view-quarters h1').textContent=user.role==='personnel'?'وضعیت ارزیابی فصلی KPI':'ارزیابی فصلی KPI';
     $('#quarterIntro').textContent=user.role==='personnel'?'وضعیت تکمیل داده‌ها، بررسی مدیر و ادمین و نتیجهٔ نهایی فصل':'ارزیابی مستقیم فصل، یک نمره برای هر مؤلفه و تأیید مدیر و ادمین';
-    if(user.role==='personnel'){$('#quarterInbox').hidden=true;renderPersonnelQuarter(quarterRows[0]);return;}
+    if(user.role==='personnel'){closeQuarterDefects(false);quarterDefects=[];quarterDefectsContext=null;$('#quarterInbox').hidden=true;renderPersonnelQuarter(quarterRows[0]);return;}
     $('#quarterInbox').hidden=user.role!=='hr';
     if(!canView('quarters'))return;syncQuarterUnits();const visible=quarterRows.filter(row=>quarterMatches(row.employee));$('#quarterResultCount').textContent=fa.format(visible.length)+' نفر از '+fa.format(quarterRows.length);const statusText=row=>state(row.status);const rows=visible.map(row=>{
       const score=row.calculation?.performance,earned=row.quarterPay?.earned,ceiling=row.quarterPay?.ceiling;
@@ -453,9 +489,11 @@ function camelView(id){return {'manager-dashboard':'managerDashboard','manager-p
       return `<tr data-quarter-person="${esc(row.employee.id)}"><td><strong>${esc(row.employee.name)}</strong><small>${esc(row.employee.level||row.modelType)}</small></td><td>${esc(quarterUnitLabel(row.employee))}</td><td>${esc(modelTitle(row))}<small>${['exam','manager','routine','project','peer'].map(id=>fa.format(row.policy?.weights?.[id]||0)).join(' / ')}</small></td><td>${pct(score)}</td><td>${user.role==='manager'?'محدود':money(earned)}</td><td>${user.role==='manager'?'محدود':money(ceiling)}</td><td>${statusText(row.status)}</td><td>${finalButton}</td></tr>`;
     }).join('');
     const incomplete=visible.flatMap(row=>(row.blockers||[]).map(item=>`${row.employee.name}: ${displayQuarterBlocker(item)}`));
-    const summary=incomplete.length?`<div class="lifecycle-note"><b>موارد ناقص (به‌جای صفر، متوقف می‌شوند):</b><ul>${incomplete.slice(0,12).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'<p class="lifecycle-note">داده‌های فصل آمادهٔ بازبینی‌اند؛ این وضعیت هنوز تأیید یا پرداخت نیست.</p>';
+    quarterDefects=incomplete;quarterDefectsContext=defectsContext(quarterRows[0]?.quarter||quarterNow());
+    const summary=incomplete.length?'<div class="quarter-defects-actions"><button type="button" class="secondary-button" data-quarter-defects aria-haspopup="dialog" aria-controls="quarterDefectsDialog">نواقص</button></div>':'<p class="lifecycle-note">داده‌های فصل آمادهٔ بازبینی‌اند؛ این وضعیت هنوز تأیید یا پرداخت نیست.</p>';
     $('#quarterCards').innerHTML=`<div class="panel-heading"><div><h2>${esc(window.PanelWorkflow.quarterLabel(quarterNow()))}</h2><p>نسخهٔ تجمیع ${esc(quarterRows[0]?.aggregationVersion||'exam-once-monthly-thirds-v1')} · هر مؤلفه یک نمرهٔ مستقل در فصل دارد</p></div><button class="secondary-button" data-refresh-lifecycle>به‌روزرسانی</button></div>${table(['پرسنل','واحد','مدل','امتیاز فصل','مبلغ KPI فصلی','سقف KPI','وضعیت','اقدام'],rows,quarterRows.length?'پرسنلی با این جست‌وجو و واحد پیدا نشد.':'پرسنلی برای این نقش تعریف نشده است.')}${visible.length?summary:''}`;
     $('#quarterCards table').setAttribute('aria-label','ارزیابی فصلی پرسنل');$('#quarterCards').querySelectorAll('th').forEach(th=>th.setAttribute('scope','col'));
+    renderQuarterDefects();
   }
   function renderQuarterInbox(){
     const rows=evaluations.filter(row=>row.quarter===quarterNow()&&quarterMatches(quarterRows.find(person=>person.employee.id===row.employeeId)?.employee||row.snapshot?.employee||{name:row.employeeId})).map(row=>`<tr><td>${esc(row.snapshot?.employee?.name||row.employeeId)}</td><td>${esc(window.PanelWorkflow.quarterLabel(row.quarter))}</td><td>${state(row.status)}</td><td>${row.status==='hr_review'?`<button class="primary-button" data-approve-evaluation="${esc(row.id)}">تصویب و قفل</button> <button class="secondary-button" data-return-evaluation="${esc(row.id)}">بازگرداندن</button>`:''}</td></tr>`).join('');

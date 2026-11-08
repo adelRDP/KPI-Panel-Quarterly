@@ -17,9 +17,10 @@
      <div class="account-defaults"><h3>تعریف گروهی حساب‌ها</h3><div class="account-default-buttons"><button type="button" id="createDefaultAccounts" class="secondary-button">ایجاد حساب پیش‌فرض برای همه</button><button type="button" id="downloadDefaultAccounts" class="secondary-button" hidden>دانلود اطلاعات حساب‌های ساخته‌شده</button></div><details class="account-defaults-help"><summary>راهنمای تعریف گروهی</summary><p>برای افراد فاقد حساب، نام کاربری و رمز موقت اختصاصی ساخته می‌شود؛ حساب‌های موجود و افراد تسویه‌شده تغییری نمی‌کنند. اطلاعات ورود در یک فایل قابل دانلود تحویل داده می‌شود.</p></details></div>
      <label>انتخاب فرد<select name="userId" required></select></label>
      <label>نام کاربری<input name="username" dir="ltr" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="3" maxlength="128" placeholder="مثلاً user.name" required></label>
+     <label>رمز موقت<input name="password" type="password" dir="ltr" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="accountPasswordHint"><small id="accountPasswordHint">برای حساب جدید، رمز ۱۲ تا ۱۲۸ نویسه‌ای تعیین کنید؛ هنگام ویرایش، برای حفظ رمز فعلی خالی بگذارید.</small></label>
     </div>
     <div class="account-provision-bottom">
-     <label>رمز موقت<input name="password" type="password" dir="ltr" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="accountPasswordHint"><small id="accountPasswordHint">برای حساب جدید، رمز ۱۲ تا ۱۲۸ نویسه‌ای تعیین کنید؛ هنگام ویرایش، برای حفظ رمز فعلی خالی بگذارید.</small></label>
+
      <label class="account-enabled"><input type="checkbox" name="enabled" checked><span>حساب فعال باشد</span></label><button type="submit" class="primary-button">ذخیره حساب</button>
     </div>
     <p class="account-delivery-note">رمز موقت را فقط از مسیر امن به صاحب حساب تحویل دهید.</p>

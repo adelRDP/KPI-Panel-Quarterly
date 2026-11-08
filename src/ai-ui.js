@@ -145,7 +145,7 @@
     submitReport.onclick=()=>{if(submitReport.disabled||working)return;if(hasNewReport())upload(pendingFiles.get(data.activity.id)||[]);else run();};
     document.querySelector('#workEvidence').onchange=updateSubmit;
     if(uploadClosed){document.querySelector('#activityFiles').disabled=true;report.disabled=true;document.querySelector('#workEvidence').disabled=!hasReadableEvidence;}
-    panel.querySelector('.activity-review-results').onclick=e=>{const analysis=e.target.closest('[data-history-analysis]');if(analysis)openActivityAnalysis(data,Number(analysis.dataset.historyAnalysis),analysis);};
+    panel.querySelector('.activity-review-results').onclick=e=>{const definition=e.target.closest('[data-history-definition]');if(definition){openHistoryDialog(data,Number(definition.dataset.historyDefinition),definition,'definition');return;}const analysis=e.target.closest('[data-history-analysis]');if(analysis)openActivityAnalysis(data,Number(analysis.dataset.historyAnalysis),analysis);};
     document.querySelector('#activityDocuments').onclick=async e=>{
       const button=e.target.closest('[data-detach]');if(!button||working||!confirm('این گزارش از شاخص حذف شود؟ نسخه اصلی و تاریخچه برای پیگیری حفظ می‌شوند.'))return;
       setWorking(true);try{await api(`/api/activities/${selected}/documents/${button.dataset.detach}`,{method:'DELETE'});await detail();}catch(error){showError(error);}finally{setWorking(false);}
@@ -209,11 +209,12 @@
     if(!analysisSelection&&!activityAnalysisDialog.open)return;const previous=analysisSelection;analysisSelection=null;analysisRenderedKey=null;
     if(typeof activityAnalysisDialog.close==='function'&&activityAnalysisDialog.open)activityAnalysisDialog.close();else activityAnalysisDialog.removeAttribute('open');activityAnalysisBackdrop.hidden=true;document.body.classList.remove('activity-analysis-open');if(activityDialog)activityDialog.inert=previous?.parentInert||false;
     activityAnalysisDialog.querySelector('.activity-dialog-body').replaceChildren();document.querySelector('#activityAnalysisMeta').textContent='';
-    if(restoreFocus&&previous){const rows=previous.data&&historyRows(previous.data),index=rows?.findIndex(item=>item.id===previous.itemId),opener=previous.opener?.isConnected?previous.opener:document.querySelector('[data-history-analysis="'+index+'"]');opener?.focus();}
+    if(restoreFocus&&previous){const rows=previous.data&&historyRows(previous.data),index=rows?.findIndex(item=>item.id===previous.itemId),opener=previous.opener?.isConnected?previous.opener:document.querySelector('['+(previous.mode==='definition'?'data-history-definition':'data-history-analysis')+'="'+index+'"]');opener?.focus();}
   }
   function renderActivityAnalysis(data){
     if(!analysisSelection)return;const rows=historyRows(data),index=rows.findIndex(row=>row.id===analysisSelection.itemId),item=rows[index];if(data.activity.id!==analysisSelection.activityId||!item){closeActivityAnalysis(false);return;}
     analysisSelection.data=data;
+    if(analysisSelection.mode==='definition'){renderActivityDefinition(data,item,index,rows.length);return;}
     const summary=data.reviews.find(row=>row.id===item.reviewId),reportKey=summary?.id+':'+summary?.reportVersion;
     if(summary?.summaryOnly&&analysisSelection.reviewKey!==reportKey){
       const state=analysisSelection,body=activityAnalysisDialog.querySelector('.activity-dialog-body');
@@ -247,6 +248,40 @@
     }else content+=section('وضعیت تحلیل',review?renderReview(review,[]):'<p>هنوز نتیجهٔ تحلیلی برای این نوبت ثبت نشده است.</p>');
     content+=section('مستندات همین نوبت','<ul>'+((item.files||review?.documentHashes||[]).map(file=>'<li>'+escape(file.name||file.id)+'</li>').join('')||'<li>نام مستندی برای این نوبت ثبت نشده است.</li>')+'</ul>');
     const body=activityAnalysisDialog.querySelector('.activity-dialog-body');body.innerHTML=content;body.scrollTop=0;
+  }
+  function renderActivityDefinition(data,item,index,total){
+    const state=analysisSelection,body=activityAnalysisDialog.querySelector('.activity-dialog-body');
+    const summary=data.reviews.find(row=>row.id===item.reviewId),reviewKey=item.reviewId;
+    if(reviewKey&&!summary?.activitySnapshot&&state.definitionKey!==reviewKey){
+      if(state.definitionLoadingKey===reviewKey)return;
+      state.definitionLoadingKey=reviewKey;
+      document.querySelector('#activityAnalysisMeta').textContent='نوبت '+fa.format(total-index);
+      body.innerHTML='<p class="workflow-muted" role="status">در حال دریافت مشخصات شاخص در این نوبت…</p>';
+      api('/api/activities/'+encodeURIComponent(data.activity.id)+'/reviews/'+encodeURIComponent(reviewKey)).then(review=>{
+        if(analysisSelection!==state||state.definitionLoadingKey!==reviewKey)return;
+        state.definitionReview=review;state.definitionKey=reviewKey;renderActivityAnalysis(state.data);
+      }).catch(error=>{
+        if(analysisSelection!==state||state.definitionLoadingKey!==reviewKey)return;
+        body.innerHTML='<p role="alert">'+escape(error.message||'دریافت جزئیات شاخص انجام نشد.')+'</p><button type="button" class="secondary-button" data-retry-history-definition>تلاش دوباره</button>';
+      });return;
+    }
+    const recorded=summary?.activitySnapshot||state.definitionReview?.activitySnapshot,snapshot=recorded||data.activity;
+    const renderKey=JSON.stringify(['definition',item.id,snapshot,!!recorded]);if(analysisRenderedKey===renderKey)return;analysisRenderedKey=renderKey;
+    document.querySelector('#activityAnalysisMeta').textContent=(snapshot.title||'شاخص')+' · نوبت '+fa.format(total-index)+(item.createdAt?' · '+window.PanelDate.formatDateTime(item.createdAt):'');
+    const display=value=>value==null||value===''?'ثبت نشده':typeof value==='object'?JSON.stringify(value):String(value);
+    const section=(title,content)=>'<section class="activity-analysis-section activity-definition-section"><h3>'+title+'</h3>'+content+'</section>';
+    const timing=snapshot.timeLimit,weekdays=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+    const schedule=timing?[timing.dayOfMonth!=null?'روز '+fa.format(timing.dayOfMonth)+' ماه':'',timing.dayOfWeek!=null?weekdays[timing.dayOfWeek]:'',timing.time?'ساعت '+window.PanelDate.hourOnly(timing.time):''].filter(Boolean).join(' · '):null;
+    const fields=[['نوع شاخص',kinds[snapshot.kind]||snapshot.kind],['دوره',snapshot.period?(window.PanelWorkflow?.monthLabel?.(snapshot.period)||snapshot.period):null],['تناوب',snapshot.frequency],['مهلت انجام',snapshot.dueDate?window.PanelDate.formatDateTime(snapshot.dueDate):null],['زمان انجام',schedule],['تعداد و واحد هدف',snapshot.targetVolume!=null?fa.format(snapshot.targetVolume)+' '+(snapshot.targetUnit||''):null],['قالب مستندات',snapshot.documentFormat]];
+    if(snapshot.designVersion!=null)fields.push(['نسخهٔ تعریف شاخص',fa.format(snapshot.designVersion)]);
+    if(snapshot.positionVersion!=null)fields.push(['نسخهٔ سمت',fa.format(snapshot.positionVersion)]);
+    const criteria=Array.isArray(snapshot.criteria)?snapshot.criteria:[];
+    body.innerHTML='<p class="activity-definition-notice"'+(recorded?'':' role="status"')+'>'+escape(recorded?'مشخصات ثبت‌شدهٔ شاخص هنگام بررسی همین نوبت.':'نسخهٔ تاریخی شاخص برای این نوبت در دسترس نیست؛ مشخصات فعلی شاخص در زیر نمایش داده می‌شود.')+'</p>'+
+      section('عنوان شاخص','<p>'+escape(display(snapshot.title))+'</p>')+
+      section('شرح، هدف و مسئولیت','<p class="activity-definition-description">'+escape(display(snapshot.description))+'</p>')+
+      section('مشخصات شاخص','<dl class="activity-definition-fields">'+fields.map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+escape(display(value))+'</dd></div>').join('')+'</dl>')+
+      (snapshot.deliverable?section('خروجی مورد انتظار','<p class="activity-definition-description">'+escape(display(snapshot.deliverable))+'</p>'):'')+
+      section('معیارهای پذیرش',criteria.length?'<ol>'+criteria.map(c=>'<li>'+escape(display(typeof c==='string'?c:c.text))+'</li>').join('')+'</ol>':'<p>معیار پذیرش در این نسخه ثبت نشده است.</p>');
   }
   function activityCorrectionItems(review){
     const result=review?.status==='done'?review.result:null;if(!result)return [];
@@ -307,18 +342,20 @@
     finally{setWorking(false);if(button.isConnected)button.disabled=false;}
   }
   activityAnalysisDialog.addEventListener('click',event=>{const button=event.target.closest('[data-resume-review]');if(button)resumeFailedReview(button);});
-  function openActivityAnalysis(data,index,opener){
-    const item=historyRows(data)[index];if(!item||selected!==data.activity.id)return;closeActivityAnalysis(false);analysisSelection={activityId:data.activity.id,itemId:item.id,opener,parentInert:activityDialog?.inert||false,data};renderActivityAnalysis(data);
+  function openActivityAnalysis(data,index,opener){openHistoryDialog(data,index,opener,'analysis');}
+  function openHistoryDialog(data,index,opener,mode){
+    const item=historyRows(data)[index];if(!item||selected!==data.activity.id)return;closeActivityAnalysis(false);analysisSelection={mode,activityId:data.activity.id,itemId:item.id,opener,parentInert:activityDialog?.inert||false,data};
+    document.querySelector('#activityAnalysisTitle').textContent=mode==='definition'?'جزئیات شاخص':'تحلیل هوش مصنوعی گزارش';activityAnalysisDialog.querySelector('.activity-dialog-header [data-close-activity-analysis]').setAttribute('aria-label',mode==='definition'?'بستن جزئیات شاخص':'بستن تحلیل گزارش');renderActivityAnalysis(data);
     if(typeof activityAnalysisDialog.showModal==='function')activityAnalysisDialog.showModal();else{activityAnalysisDialog.setAttribute('open','');activityAnalysisBackdrop.hidden=false;}if(activityDialog)activityDialog.inert=true;document.body.classList.add('activity-analysis-open');activityAnalysisDialog.querySelector('[data-close-activity-analysis]').focus();
   }
-  activityAnalysisDialog.onclick=event=>{if(event.target.closest('[data-retry-history-analysis]')){if(analysisSelection){analysisSelection.loadingKey=null;renderActivityAnalysis(analysisSelection.data);}return;}if(event.target.closest('[data-edit-corrected-report]')){const data=analysisSelection?.data,item=data&&historyRows(data).find(row=>row.id===analysisSelection.itemId),review=analysisReview(data,item);if(item&&canDraftActivityCorrection(data,item,review))focusCorrectedReport();}else if(event.target.closest('[data-close-activity-analysis]'))closeActivityAnalysis();else if(event.target===activityAnalysisDialog){const r=activityAnalysisDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeActivityAnalysis();}};
+  activityAnalysisDialog.onclick=event=>{if(event.target.closest('[data-retry-history-definition]')){if(analysisSelection?.mode==='definition'){analysisSelection.definitionLoadingKey=null;renderActivityAnalysis(analysisSelection.data);}return;}if(event.target.closest('[data-retry-history-analysis]')){if(analysisSelection){analysisSelection.loadingKey=null;renderActivityAnalysis(analysisSelection.data);}return;}if(event.target.closest('[data-edit-corrected-report]')){const data=analysisSelection?.data,item=data&&historyRows(data).find(row=>row.id===analysisSelection.itemId),review=analysisReview(data,item);if(item&&canDraftActivityCorrection(data,item,review))focusCorrectedReport();}else if(event.target.closest('[data-close-activity-analysis]'))closeActivityAnalysis();else if(event.target===activityAnalysisDialog){const r=activityAnalysisDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeActivityAnalysis();}};
   activityAnalysisBackdrop.onclick=()=>closeActivityAnalysis();activityAnalysisDialog.addEventListener('cancel',event=>{event.preventDefault();closeActivityAnalysis();});activityAnalysisDialog.addEventListener('close',()=>{if(!activityAnalysisDialog.open)closeActivityAnalysis();});
   activityAnalysisDialog.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();closeActivityAnalysis();return;}if(event.key!=='Tab')return;const controls=[...activityAnalysisDialog.querySelectorAll('button,textarea,input,select,summary,a[href]')].filter(el=>!el.disabled&&!el.closest('[hidden]')&&(!el.closest('details:not([open])')||el.tagName==='SUMMARY')),first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}};
   window.addEventListener('panel:session',()=>closeActivityAnalysis(false));window.addEventListener('panel:view',()=>closeActivityAnalysis(false));document.querySelector('#workflowPeriod')?.addEventListener('change',()=>closeActivityAnalysis(false));
   function renderHistory(data){
     const rows=historyRows(data);
     const labels={completed:'تأیید شده',needs_revision:'نیاز به اصلاح',insufficient:'شواهد ناکافی',failed:'ناموفق',blocked:'ارسال به مدل متوقف',queued:'در صف بررسی',running:'در حال تحلیل',uploading:'در حال تکمیل ارسال',uploaded:'ثبت‌شده؛ بدون تحلیل'},tones={completed:'approved',needs_revision:'error',insufficient:'pending',failed:'error',blocked:'error',queued:'pending',running:'pending'};
-    return `<h3>تاریخچهٔ ارسال و تحلیل</h3><div class="review-history-legend" aria-label="راهنمای رنگ وضعیت"><span data-tone="approved">تأیید</span><span data-tone="pending">در انتظار / شواهد ناکافی</span><span data-tone="error">اصلاح / خطا</span><span data-tone="neutral">بدون تحلیل</span></div>${rows.map((item,index)=>{const status=labels[item.status]||item.status||'نامشخص',meta=(item.kind==='upload'?'ارسال گزارش':'تحلیل')+(item.createdAt?' · '+window.PanelDate.formatDateTime(item.createdAt):'')+(item.cached?' · استفاده از نتیجهٔ قبلی':'');return `<article class="review-history-item"><div class="review-history-summary" tabindex="0" aria-label="خلاصه نوبت ${fa.format(rows.length-index)}"><b class="review-history-round">نوبت ${fa.format(rows.length-index)}</b><span class="review-history-status" data-tone="${tones[item.status]||'neutral'}" title="${escape(status)}"><span>${escape(status)}</span></span><small class="review-history-meta" title="${escape(meta)}">${escape(meta)}</small><strong class="review-history-score">امتیاز نهایی: ${Number.isFinite(item.finalScore)?fa.format(item.finalScore):'نامشخص'}</strong><div class="review-history-actions"><button type="button" class="secondary-button" data-history-analysis="${index}" aria-haspopup="dialog">نمایش تحلیل AI</button></div></div></article>`;}).join('')||'<p class="workflow-muted">هنوز ارسال یا تحلیلی ثبت نشده است.</p>'}`;
+    return `<h3>تاریخچهٔ ارسال و تحلیل</h3><div class="review-history-legend" aria-label="راهنمای رنگ وضعیت"><span data-tone="approved">تأیید</span><span data-tone="pending">در انتظار / شواهد ناکافی</span><span data-tone="error">اصلاح / خطا</span><span data-tone="neutral">بدون تحلیل</span></div>${rows.map((item,index)=>{const status=labels[item.status]||item.status||'نامشخص',meta=(item.kind==='upload'?'ارسال گزارش':'تحلیل')+(item.createdAt?' · '+window.PanelDate.formatDateTime(item.createdAt):'')+(item.cached?' · استفاده از نتیجهٔ قبلی':'');return `<article class="review-history-item"><div class="review-history-summary" tabindex="0" aria-label="خلاصه نوبت ${fa.format(rows.length-index)}"><b class="review-history-round">نوبت ${fa.format(rows.length-index)}</b><span class="review-history-status" data-tone="${tones[item.status]||'neutral'}" title="${escape(status)}"><span>${escape(status)}</span></span><small class="review-history-meta" title="${escape(meta)}">${escape(meta)}</small><strong class="review-history-score">امتیاز نهایی: ${Number.isFinite(item.finalScore)?fa.format(item.finalScore):'نامشخص'}</strong><div class="review-history-actions"><button type="button" class="secondary-button" data-history-definition="${index}" aria-haspopup="dialog">جزئیات شاخص</button><button type="button" class="secondary-button" data-history-analysis="${index}" aria-haspopup="dialog">نمایش تحلیل AI</button></div></div></article>`;}).join('')||'<p class="workflow-muted">هنوز ارسال یا تحلیلی ثبت نشده است.</p>'}`;
   }
   function renderReview(review,docs) {
     const retention=review.evidenceDisposition?.archivedDocumentIds?.length?'<p class="workflow-muted">پیوست‌های این بررسی از فهرست فعال حذف و قابل بازیابی بایگانی شدند؛ نتیجه، شواهد تحلیل و شمارش سهمیه حفظ شده‌اند.</p>':'';
