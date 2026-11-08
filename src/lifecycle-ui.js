@@ -231,7 +231,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
   const examExcelPanel=document.createElement('section');examExcelPanel.className='panel settings-card lifecycle-section';examExcelPanel.innerHTML='<h2>ورود گروهی نتیجهٔ آزمون با اکسل</h2><p class="workflow-muted">قالب نمونه را دریافت کنید؛ برای هر پرسنل یک سطر با کد پرسنلی و امتیاز ۰ تا ۱۰۰ وارد کنید. فقط XLSX با حداکثر ۵۰۰ سطر پذیرفته می‌شود.</p><div class="design-form-actions"><button type="button" class="secondary-button" id="downloadExamTemplate">دریافت قالب اکسل</button></div><form id="examExcelForm"><label>فایل نتیجهٔ آزمون (XLSX، حداکثر ۲ مگابایت)<input name="file" type="file" accept=".xlsx" required></label><button class="primary-button">اعتبارسنجی و بارگذاری اکسل</button></form><div id="examExcelResult" role="status" aria-live="polite"></div>';dataView.append(examExcelPanel);
   const examArchivePanel=document.createElement('section');examArchivePanel.className='panel settings-card lifecycle-section';examArchivePanel.innerHTML='<h2>آرشیو بارگذاری‌های آزمون</h2><p class="workflow-muted">تاریخچهٔ بسته‌های ثبت‌شده و نتیجهٔ اعتبارسنجی هر بارگذاری در سامانه می‌ماند.</p><div id="examImportArchive"></div>';dataView.append(examArchivePanel);
   const finalExport=document.createElement('section');finalExport.className='panel settings-card lifecycle-section';finalExport.id='finalExport';finalExport.innerHTML='<h2>خروجی نهایی برای بررسی بیرون از سامانه</h2><p class="workflow-muted">فقط ارزیابی‌های قفل‌شدهٔ فصل در فایل اکسل قرار می‌گیرند. هیچ دسترسی پنلی برای مالی تعریف نشده است.</p><button class="secondary-button" id="exportFinalExcel">دریافت اکسل نهایی فصل</button>';quarterView.append(finalExport);
-  const appealView=makeView('appeals','درخواست‌های اعتراض','i-pulse',roleViews.appeals);
+  const appealView=makeView('appeals','اعتراض به نتیجهٔ فصل','i-pulse',roleViews.appeals);
   appealView.innerHTML='<div class="page-heading"><div><p class="eyebrow">حفظ تاریخچه و حق بازبینی</p><h1>درخواست‌های اعتراض</h1><p>درخواست‌ها به نسخهٔ قفل‌شده متصل می‌شوند؛ اصلاح، نتیجهٔ اصلی را بازنویسی نمی‌کند.</p></div></div><form id="appealForm" class="panel settings-card"><h2>ثبت درخواست</h2><div class="form-grid"><label>فصل<select class="quarter-season" aria-label="فصل ارزیابی"></select></label><label>سال<select class="quarter-year" aria-label="سال ارزیابی"></select></label><label>موضوع<select name="type"><option value="score">امتیاز عملکرد</option><option value="payroll">مبلغ/خروجی مالی</option></select></label></div><input name="quarter" type="hidden"><label>دلیل و مستند<textarea name="reason" rows="3" maxlength="2000" required></textarea></label><button class="primary-button">ثبت درخواست بازبینی</button></form><section class="panel settings-card lifecycle-section"><h2>درخواست‌های ثبت‌شده</h2><div id="appealList"></div></section>';
   appealView.querySelector('#appealForm [name="reason"]').closest('label').insertAdjacentHTML('afterend','<div class="appeal-file-field"><p class="workflow-muted">فایل‌های مستند · اختیاری؛ حداکثر ۵ فایل، هرکدام تا ۱۰ مگابایت</p><label class="activity-attach-control"><svg aria-hidden="true"><use href="#i-upload"/></svg><span>پیوست مستندات</span><input id="appealFiles" name="appealFiles" type="file" multiple aria-label="انتخاب فایل‌های مستند اعتراض" aria-describedby="appealFileNames"></label><p id="appealFileNames" class="workflow-muted" role="status" aria-live="polite"></p></div>');
   function syncAppealFileNames(){$('#appealFileNames').textContent=[...$('#appealFiles').files].map(file=>file.name).join('، ')||'فایلی انتخاب نشده است.';}
@@ -284,6 +284,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     return entry;
   }
   const navigationGroups={
+    appealRequests:makeNavigationGroup('appeal-requests','درخواست‌های اعتراض','i-appeal',['appeals','case-review'],'all'),
     managerRequests:makeNavigationGroup('manager-requests','درخواست‌های پرسنلی','i-inbox',['position-review','personnel-requests-archive'],'manager'),
     panelSettings:makeNavigationGroup('panel-settings','تنظیمات پنل','i-settings',['evaluation-settings','score-settings']),
     personnel:makeNavigationGroup('personnel','دیتای پرسنلی','i-users',['updates','chart','organization','duties']),
@@ -343,15 +344,16 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     const chartNav=$('[data-view="chart"]'),chartName=role==='hr'?'چارت سازمانی پرسنل':role==='manager'?'اطلاعات مدیر':'اطلاعات پرسنلی';
     chartNav.title=chartName;chartNav.setAttribute('aria-label',chartName);chartNav.querySelector('span').textContent=chartName;chartNav.querySelector('use').setAttribute('href',role==='hr'?'#i-org-chart':'#i-person-card');$('#chartTitle').textContent=chartName;$('#personalInfo').hidden=role==='hr';
     const navigationOrder=role==='personnel'
-      ?['dashboard','chart','quarters','group:kpi','surveys','appeals','chat','notes']
+      ?['dashboard','chart','quarters','group:kpi','surveys','group:appealRequests','chat','notes']
       :role==='manager'
-        ?['manager-dashboard','group:managerKpi','group:managerPersonnel','group:managerSurveys','tasks','group:managerRequests','chat','notes']
-        :['quarters','group:panelSettings','group:personnel','data','surveys','announcements','group:requests','group:ai','chat','notes'];
+        ?['manager-dashboard','group:managerKpi','group:managerPersonnel','group:managerSurveys','tasks','group:managerRequests','group:appealRequests','chat','notes']
+        :['quarters','group:panelSettings','group:personnel','data','surveys','announcements','group:requests','group:appealRequests','group:ai','chat','notes'];
     const navContainer=document.querySelector('.main-nav');
     for(const view of new Set(Object.values(navigationGroups).flatMap(group=>group.views)))navContainer.append($(`[data-view="${view}"]`));
     for(const {group,submenu,views,allowedRole,setOpen} of Object.values(navigationGroups)){
-      group.hidden=role!==allowedRole;if(group.hidden)setOpen(false);
-      if(role===allowedRole||allowedRole==='personnel')for(const view of views)submenu.append($(`[data-view="${view}"]`));
+      const allowed=allowedRole==='all'?['personnel','manager','hr'].includes(role):role===allowedRole;
+      group.hidden=!allowed;if(group.hidden)setOpen(false);
+      if(allowed||allowedRole==='personnel')for(const view of views)submenu.append($(`[data-view="${view}"]`));
     }
     for(const view of navigationOrder)(window.PanelUtilities?.navHost(view)||navContainer).append(view.startsWith('group:')?navigationGroups[view.slice(6)].group:$(`[data-view="${view}"]`));
     syncNavigationGroups(roleChanged);

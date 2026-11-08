@@ -1,4 +1,5 @@
 import {createReviewCases} from './backend/review-cases.mjs';
+import {submitReviewCaseWithFiles} from './backend/review-case-files.mjs';
 import {approvedActivityDeadline,approvedActivityScore} from './backend/activity-exceptions.mjs';
 import {createPositionHistory} from './backend/position-history.mjs';
 import { createServer } from 'node:http';
@@ -243,7 +244,17 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(scoreAction&&req.method==='POST')return send(res,200,scoreSettings[scoreAction[1]](actor,JSON.parse((await body(req)).toString('utf8'))));
         if(path==='/api/approval-deadlines'&&req.method==='GET')return send(res,200,organization.approvalDeadlines(actor));
         if(path==='/api/review-cases'&&req.method==='GET')return send(res,200,reviewCases.list(actor));
-        if(path==='/api/review-cases'&&req.method==='POST')return send(res,201,reviewCases.create(actor,JSON.parse((await body(req,8192)).toString('utf8'))));
+        if(path==='/api/review-cases'&&req.method==='POST'){
+          if(actor.role!=='personnel')return send(res,403,{error:'ثبت درخواست فقط برای صاحب شاخص مجاز است.'});
+          return send(res,201,await submitReviewCaseWithFiles(reviewCases,actor,JSON.parse((await body(req,70*1024*1024)).toString('utf8')),uploadRoot));
+        }
+        const caseFile=path.match(/^\/api\/review-cases\/([\w-]+)\/files\/([a-f0-9-]{36})$/);
+        if(caseFile&&req.method==='GET'){
+          const file=reviewCases.file(actor,caseFile[1],caseFile[2]),bytes=await readFile(join(uploadRoot,'review-cases',file.id));
+          if(sha256(bytes)!==file.sha256)return send(res,409,{error:'فایل با نسخهٔ ثبت‌شده مطابقت ندارد.'});
+          const name=encodeURIComponent(file.name).replace(/[!'()*]/g,c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+          res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="case-file"; filename*=UTF-8''${name}`,'Content-Length':bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(bytes);
+        }
         const reviewCase=path.match(/^\/api\/review-cases\/([\w-]+)\/(decision|resubmit|cancel)$/);
         if(reviewCase&&req.method==='POST')return send(res,200,reviewCases[reviewCase[2]==='decision'?'decide':reviewCase[2]](actor,reviewCase[1],JSON.parse((await body(req,8192)).toString('utf8'))));
         if(path==='/api/org/exams/results'&&req.method==='GET')return send(res,200,examCorrections.list(actor,url.searchParams.get('period')));

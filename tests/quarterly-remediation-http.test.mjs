@@ -17,9 +17,12 @@ test('new remediation HTTP routes enforce owner, direct-manager, admin and versi
  try{
   for(const id of ['admin','manager','other-manager','employee-0','employee-1']){const first=await call(null,'/api/session');tokens[id]=first.data.token;if(id!=='admin')tokens[id]=(await call(id,'/api/session',{userId:id})).data.token;}
   assert.equal((await call(null,'/api/review-cases')).status,403);
-  const input={type:'extension',activityId:activity.id,dueDate:extended,category:'outage',reason:'قطعی مستند سامانه کاری'};
+  const input={type:'extension',activityId:activity.id,dueDate:extended,category:'outage',reason:'قطعی مستند سامانه کاری',attachments:[{name:'مدرک آزمایشی.txt',data:Buffer.from('Synthetic supporting evidence').toString('base64')}]};
   assert.equal((await call('employee-1','/api/review-cases',input)).status,403);assert.equal((await call('manager','/api/review-cases',input)).status,403);
   const created=await call('employee-0','/api/review-cases',input);assert.equal(created.status,201);const id=created.data.id;
+  const file=created.data.files[0];assert.equal(file.path,undefined);assert.equal(file.name,'مدرک آزمایشی.txt');
+  for(const actor of ['employee-0','manager','admin']){const r=await fetch(base+'/api/review-cases/'+id+'/files/'+file.id,{headers:{'x-panel-token':tokens[actor]}});assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');assert.ok(r.headers.get('content-disposition').includes('attachment'));assert.equal(await r.text(),'Synthetic supporting evidence');const rows=(await call(actor,'/api/review-cases')).data;assert.equal(rows.find(r=>r.id===id).files[0].id,file.id);assert.equal(rows.find(r=>r.id===id).files[0].path,undefined);}
+  for(const actor of ['employee-1','other-manager'])assert.equal((await call(actor,'/api/review-cases/'+id+'/files/'+file.id)).status,404);
   assert.equal((await call('other-manager','/api/review-cases')).data.length,0);
   assert.equal((await call('admin','/api/review-cases/'+id+'/decision',{revision:1,decision:'approve',reason:'تأیید زودهنگام'})).status,403);
   assert.equal((await call('manager','/api/review-cases/'+id+'/decision',{revision:1,decision:'approve',reason:'تأیید قطعی مستند'})).status,200);

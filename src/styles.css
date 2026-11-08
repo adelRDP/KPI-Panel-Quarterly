@@ -878,7 +878,8 @@ main { max-width: 1540px; padding-block-start: var(--space-5); }
 @media (max-width: 580px) { .hr-overview { grid-template-columns: 1fr 1fr; }.workflow-period-bar { width: 100%; padding: var(--space-3); }.notification-panel { left: -4px; max-height: 70vh; }.quarter-summary-card,.metric-card { padding: var(--space-4); } }
 /* Glass theme: the existing layout stays intact in both color modes. */
 .sidebar { background-image: var(--background-sidebar-image); background-size: cover; background-position: 18% center; background-repeat: no-repeat; }
-.topbar { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.topbar { background:linear-gradient(135deg,rgba(255,255,255,.07),transparent 60%),var(--color-topbar);backdrop-filter:blur(16px) saturate(115%);-webkit-backdrop-filter:blur(16px) saturate(115%);box-shadow:0 6px 24px rgba(0,0,0,.04),inset 0 1px 0 rgba(255,255,255,.10); }
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.topbar{background:var(--color-surface);}}
 .panel,.metric-card,.stat-card,.role-cards article,.quarter-summary-card,.org-person,.workflow-period-bar { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .icon-button { color: var(--color-text-secondary); background: var(--color-surface-subtle); }
 .icon-button:hover { color: var(--color-primary-strong); background: var(--color-primary-soft); }
@@ -1156,6 +1157,15 @@ select option,select optgroup { background: var(--color-select-option); color: v
 #scorePreviewResult th { background:var(--color-surface-subtle); }
 #scoreRulesForm textarea { width:100%; }
 .review-controls-dialog { width:min(760px,calc(100vw - 32px)); }
+#reviewCaseForm .activity-attach-control { display:inline-flex;gap:6px;width:fit-content; }
+#reviewCaseForm .activity-attach-control input { padding:0;border:0;min-height:0; }
+#appealForm > .form-grid,#reviewCaseForm > .review-case-fields { grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px; }
+#appealForm > button.primary-button { display:block;width:100%;min-height:44px;justify-content:center; }
+#appealForm > .form-grid > label,#reviewCaseForm > .review-case-fields > label { min-width:0;margin:0; }
+.review-case-period-field { display:grid;gap:7px;min-width:0; }
+.review-case-period-field > span { font-size:var(--text-xs);color:var(--color-text-secondary); }
+#reviewCasePeriod { display:flex;align-items:center;height:42px;min-height:42px;line-height:1.4;margin:0;padding:8px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-subtle);color:var(--color-text);font-size:14px;font-weight:700; }
+@media(max-width:680px){#appealForm > .form-grid,#reviewCaseForm > .review-case-fields{grid-template-columns:minmax(0,1fr);gap:14px;}}
 #reviewControlsForm,#reviewCaseForm { display:grid;gap:14px;min-width:0; }
 #reviewControlsForm label,#reviewCaseForm label { display:grid;gap:7px;min-width:0; }
 #reviewControlsForm input,#reviewControlsForm textarea,#reviewCaseForm input,#reviewCaseForm textarea,#reviewCaseForm select { width:100%;min-width:0;padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-subtle);color:var(--color-text);font:inherit; }
