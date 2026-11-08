@@ -86,3 +86,18 @@ test('draft log escapes text and discards a delayed preview after session change
  const f=await fixture(t),reason='<img src=x onerror=alert(1)> آزمایش';f.settings.save(f.actor,{effectiveDate:'2026-11-08',activityKind:'all',reason,values:defaultScoreRules});await f.window.PanelScoreSettings.refresh();assert.equal(f.doc.querySelector('.score-draft-reason').textContent,reason);assert.equal(f.doc.querySelector('#scoreDrafts img'),null);
  let finish;const original=f.window.PanelWorkflow.post;f.window.PanelWorkflow.post=async(...args)=>{const result=await original(...args);return new Promise(resolve=>{finish=()=>resolve(result);});};f.doc.querySelector('[data-publish-rule]').click();await until(()=>!!finish);f.window.PanelWorkflow.user={id:'employee',role:'employee'};f.window.dispatchEvent(new f.window.Event('panel:session'));finish();await until(()=>!f.window.PanelScoreSettings.working);assert.equal(f.doc.querySelector('#view-score-settings').children.length,0);assert.equal(f.store.list('score-rule-version').length,0);
 });
+
+test('published rule log opens escaped details, restores focus and copies only after discarding local edits',async t=>{
+ const f=await fixture(t),reason='<img src=x onerror=alert(1)> دلیل آزمایشی قانون';
+ f.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+ f.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new f.window.Event('close'));};
+ f.store.put('score-rule-version',{id:'score-rules-v1',sequence:1,status:'published',unitId:null,activityKind:'all',effectiveDate:'2026-11-08',publishedAt:f.clock(),publishedBy:f.actor.id,reason,values:{...defaultScoreRules,maxUploads:'10'}});
+ await f.window.PanelScoreSettings.refresh();
+ const button=f.doc.querySelector('[data-history-rule]'),dialog=f.doc.querySelector('#scoreHistoryDialog');
+ assert.ok(button);assert.equal(f.doc.querySelector('details.score-rule-history'),null);assert.equal(dialog.open,false);
+ button.click();assert.equal(dialog.open,true);assert.equal(dialog.querySelector('.score-history-reason').textContent,reason);assert.equal(dialog.querySelector('img'),null);assert.equal(dialog.querySelectorAll('.score-history-values > div').length,f.settings.state(f.actor).groups.flatMap(g=>g.fields).filter(field=>!field.locked).length);assert.equal(f.doc.activeElement,dialog.querySelector('[data-close-history]'));
+ dialog.dispatchEvent(new f.window.Event('cancel',{cancelable:true}));assert.equal(dialog.open,false);assert.equal(f.doc.activeElement,button);assert.equal(dialog.querySelector('#scoreHistoryBody').childElementCount,0);
+ f.form().elements.reason.value='تغییر محلی ذخیره نشده';f.form().elements.reason.dispatchEvent(new f.window.Event('input',{bubbles:true}));button.click();f.window.confirm=()=>false;dialog.querySelector('[data-copy-rule]').click();assert.equal(dialog.open,true);assert.equal(f.form().elements.reason.value,'تغییر محلی ذخیره نشده');
+ f.window.confirm=()=>true;dialog.querySelector('[data-copy-rule]').click();assert.equal(dialog.open,false);assert.equal(f.form().elements.reason.value,reason);assert.equal(f.form().elements.rule_maxUploads.value,'10');assert.equal(f.calls.length,0);assert.equal(f.store.list('score-rule-draft').length,0);
+ button.click();f.window.dispatchEvent(new f.window.CustomEvent('panel:view',{detail:'quarters'}));assert.equal(dialog.open,false);button.click();f.window.dispatchEvent(new f.window.Event('panel:session'));assert.equal(dialog.open,false);assert.equal(dialog.querySelector('#scoreHistoryBody').childElementCount,0);
+});
