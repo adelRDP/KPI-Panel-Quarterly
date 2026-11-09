@@ -11,8 +11,9 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { openStore } from './backend/store.mjs';
 import { extractDocument } from './backend/extract.mjs';
-import { validateActivity, sha256 } from './backend/evaluation.mjs';
-import { assess, providerStatus, providerConfig } from './backend/providers.mjs';
+import { validateActivity, sha256, POLICY_VERSION } from './backend/evaluation.mjs';
+import { assess, providerStatus, providerConfig as baseProviderConfig } from './backend/providers.mjs';
+import {createAiProviderSettings,windowsProviderVault} from './backend/ai-provider-settings.mjs';
 import { createWorkflow } from './backend/quarterly-workflow.mjs';
 import { createOrganizationWorkflow } from './backend/organization-workflow.mjs';
 import { createNotificationCenter } from './backend/notifications.mjs';
@@ -37,7 +38,7 @@ import {panelInstance} from './backend/panel-health.mjs';
 import {createBackupScheduler} from './backend/panel-backup.mjs';
 import {createExamCorrections} from './backend/exam-corrections.mjs';
 
-export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,publicOrigin,publicOrigins=[],runModel=assess,autoAssessment=true,archiveRejectedEvidence=true,demoLogin,authMode=process.env.PANEL_AUTH_MODE}={}) {
+export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,publicOrigin,publicOrigins=[],runModel=assess,providerVault,autoAssessment=true,archiveRejectedEvidence=true,demoLogin,authMode=process.env.PANEL_AUTH_MODE}={}) {
   if(authMode!==undefined&&!['demo','local','hybrid'].includes(authMode))throw Error('PANEL_AUTH_MODE must be demo, local or hybrid');
   const hostedOrigins=new Map();
   for(const origin of [publicOrigin,...publicOrigins].filter(Boolean)){
@@ -54,8 +55,12 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   if(existsSync(join(dataRoot,'RESTORE_IN_PROGRESS')))throw Error('بازیابی این پایگاه داده کامل نشده است؛ ابتدا بازیابی سالم را تکمیل کنید.');
   uploadRoot ||= isolated?join(dataRoot,'uploads'):join(root,'data','raw','kpi-panel');
   const store=openStore(dataRoot); const busy=new Set();
+  const aiProviders=providerVault?createAiProviderSettings({vault:providerVault,runModel}):null;
+  const providerConfig=aiProviders?.config||baseProviderConfig;
+  const defaultProvider=aiProviders?.defaultProvider||(()=>process.env.LLM_PROVIDER||'codex');
+  const modelRunner=aiProviders?.run||runModel;
   const positionHistory=createPositionHistory(store);
-  const workflow=createWorkflow(store),announcements=createAnnouncements(store,workflow),notifications=createNotificationCenter(store,workflow,{announcements}),organization=createOrganizationWorkflow(store,workflow,{runModel,notifications,busy}),evaluationSettings=createEvaluationSettings(store);
+  const workflow=createWorkflow(store),announcements=createAnnouncements(store,workflow),notifications=createNotificationCenter(store,workflow,{announcements}),organization=createOrganizationWorkflow(store,workflow,{runModel:modelRunner,notifications,busy,providerConfig}),evaluationSettings=createEvaluationSettings(store);
   // Hybrid keeps the original shared entry alongside fixed personal identities.
   const hybrid=authMode==='hybrid'||authMode===undefined&&!isolated;
   const localAccounts=authMode==='local'||hybrid?createLocalAccounts(store,workflow):null;
@@ -74,7 +79,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
   announcements.setChatDelivery(chat.deliverAnnouncement);
   const panelSearch=createPanelSearch(store,workflow,organization,chat);
   const incomingArchive=createIncomingArchive(store,workflow);
-  const automaticReview=createAutomaticReview(store,workflow,{runModel,notifications,busy,uploadRoot,enabled:autoAssessment,archiveRejectedEvidence});
+  const automaticReview=createAutomaticReview(store,workflow,{runModel:modelRunner,notifications,busy,uploadRoot,enabled:autoAssessment,archiveRejectedEvidence,providerConfig,assertProvider:aiProviders?.assertActive});
   const activityHistory=createActivityHistory(store);
   const activityHuman=createActivityHumanReview(store,workflow,{notifications,busy});
   const quotaFor=activity=>{const quota=submissionQuota(store,activity);let blockedReason=null;try{assertActivityHumanWritable(store,activity);submissionRules(store,activity,store.list('document',activity.id).filter(d=>!d.archivedAt));}catch(error){blockedReason=error.publicMessage||error.message;}return {...quota,canUpload:quota.remaining!==0&&!blockedReason,blockedReason:blockedReason||(quota.remaining===0?'سقف تحویل این شاخص تکمیل شده است.':null)};};
@@ -234,7 +239,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         if(path==='/api/org/ai-capabilities'&&req.method==='GET')return send(res,200,organization.aiCapabilities(actor));
         const jobAnalysisRoute=path.match(/^\/api\/org\/positions\/([\w-]+)\/analysis$/);
         if(jobAnalysisRoute&&req.method==='GET')return send(res,200,organization.jobAnalysisState(actor,jobAnalysisRoute[1]));
-        if(jobAnalysisRoute&&req.method==='POST')return send(res,200,await organization.analyzeJobPosition(actor,jobAnalysisRoute[1],JSON.parse((await body(req)).toString('utf8')||'{}').provider||'codex'));
+        if(jobAnalysisRoute&&req.method==='POST')return send(res,200,await organization.analyzeJobPosition(actor,jobAnalysisRoute[1],JSON.parse((await body(req)).toString('utf8')||'{}').provider||defaultProvider()));
         const correctionDraft=path.match(/^\/api\/org\/designs\/([\w-]+)\/correction-draft$/);
         if(correctionDraft&&req.method==='POST')return send(res,201,organization.openDesignCorrectionDraft(actor,correctionDraft[1],JSON.parse((await body(req)).toString('utf8'))));
         const acceptedChange=path.match(/^\/api\/org\/designs\/([\w-]+)\/accept-change$/);
@@ -304,9 +309,9 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
           if(designAction[2]==='publish'&&!Number.isSafeInteger(input?.draftRevision))return send(res,409,{error:'برای انتشار، نسخهٔ پیش‌نویس لازم است؛ فهرست را تازه کنید.'});
           const result=designAction[2]==='clarifications'?organization.saveDesignClarifications(actor,designAction[1],input):designAction[2]==='draft'?organization.saveDesignDraft(actor,input,designAction[1]):
             designAction[2]==='copy-next-month'?organization.copyDesignToNextMonth(actor,designAction[1],input):
-            designAction[2]==='publish'?await organization.publishDesignDraft(actor,designAction[1],input.provider||'codex',input.draftRevision):
+            designAction[2]==='publish'?await organization.publishDesignDraft(actor,designAction[1],input.provider||defaultProvider(),input.draftRevision):
             designAction[2]==='delete'?organization.removeDesign(actor,designAction[1]):
-            designAction[2]==='analyze'?await organization.analyzeDesign(actor,designAction[1],input.provider||'codex'):
+            designAction[2]==='analyze'?await organization.analyzeDesign(actor,designAction[1],input.provider||defaultProvider()):
             designAction[2]==='review'?organization.managerReviewDesign(actor,designAction[1],input):
             designAction[2]==='approval'?organization.hrReviewDesign(actor,designAction[1],input):organization.reviseDesign(actor,designAction[1],input);
           return send(res,200,result);
@@ -365,7 +370,33 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         const aiLogArchive=path.match(/^\/api\/org\/ai-log\/([^/]+)\/archive$/);
         if(aiLogArchive&&req.method==='POST')return send(res,200,aiLog.setArchived(actor,aiLogArchive[1],JSON.parse((await body(req)).toString('utf8'))));
         if(path.startsWith('/api/org/ai-log/')&&req.method==='GET')return send(res,200,aiLog.detail(actor,path.slice('/api/org/ai-log/'.length)));
-        if(path==='/api/providers' && req.method==='GET')return send(res,200,{...await providerStatus(),automaticReview:autoAssessment});
+        if(path==='/api/providers'&&req.method==='GET'){
+          const status=await (aiProviders?aiProviders.status():providerStatus());
+          return send(res,200,{...status,automaticReview:autoAssessment&&(!aiProviders||aiProviders.active(defaultProvider()))});
+        }
+        const providerAction=path.match(/^\/api\/providers\/settings\/([a-z]+)\/(save|test|toggle|default)$/);
+        if(path==='/api/providers/settings'||providerAction){
+          const loopback=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+          const localAdmin=localHost&&loopback;
+          if(actor.role!=='hr'||(!localAdmin&&session.authKind!=='local'))return send(res,403,{error:'تنظیمات AI فقط برای ادمین مجاز است.'});
+          const https=hosted&&(req.socket.encrypted||loopback&&req.headers['x-forwarded-proto']==='https');
+          const allowKeyEntry=Boolean(localAdmin||https);
+          if(path==='/api/providers/settings'&&req.method==='GET'){
+            const status=aiProviders?await aiProviders.status({admin:true,allowKeyEntry}):{...await providerStatus(),editable:false};
+            return send(res,200,{...status,automaticReview:autoAssessment&&(!aiProviders||aiProviders.active(defaultProvider()))});
+          }
+          if(!providerAction||req.method!=='POST')return send(res,405,{error:'روش درخواست پشتیبانی نمی‌شود.'});
+          if(!aiProviders)return send(res,503,{error:'مخزن امن تنظیمات AI روی این سرور در دسترس نیست.'});
+          if(!localAdmin&&!https)return send(res,403,{error:'تنظیمات AI فقط از سرور محلی یا اتصال HTTPS مجاز است.'});
+          let input;
+          try{input=JSON.parse((await body(req,4096)).toString('utf8'));}catch{return send(res,400,{error:'درخواست تنظیمات AI معتبر نیست.'});}
+          if(!input||typeof input!=='object'||Array.isArray(input))return send(res,400,{error:'درخواست تنظیمات AI معتبر نیست.'});
+          const [,provider,action]=providerAction;
+          if(['save','toggle'].includes(action)&&(busy.size||store.nextQueuedReview?.('task-evidence-context-v2',POLICY_VERSION)))return send(res,409,{error:'یک بررسی در صف یا در حال اجراست. پس از پایان دوباره تلاش کنید.'});
+          const result=await aiProviders.change(provider,action,input,{allowKeyEntry});
+          store.put('audit-event',{actorId:actor.id,action:'ai-provider.'+action,entityType:'ai-provider',entityId:provider,details:action==='test'?{ok:result.ok}:{},createdAt:new Date().toISOString()});
+          return send(res,200,result);
+        }
         if(path==='/api/activity-human-reviews'&&req.method==='GET')return send(res,200,activityHuman.list(actor));
         const humanMatch=path.match(/^\/api\/activities\/([a-f0-9-]+)\/human-review(?:\/(submit|decision|documents)(?:\/([a-f0-9-]+))?)?$/);
         if(humanMatch){
@@ -405,7 +436,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
         });
         const documents=store.list('document',activity.id).filter(d=>!d.archivedAt);
         const batchId=url.searchParams.get('batchId')||randomUUID();
-        const uploaded=async(doc,code=200)=>{const submittedDocuments=store.list('document',activity.id).filter(d=>!d.archivedAt),deferred=url.searchParams.get('deferReview')==='1',autoReview=deferred?null:await automaticReview.afterUpload(actor,activity,url.searchParams.get('provider')||process.env.LLM_PROVIDER||'codex',{privacyConfirmed:url.searchParams.get('workEvidence')==='true'});activityHistory.upload(actor,activity,{batchId,document:doc,documents:submittedDocuments,deferred,review:autoReview,error:autoReview?.error});return send(res,code,{...doc,path:undefined,autoReview});};
+        const uploaded=async(doc,code=200)=>{const submittedDocuments=store.list('document',activity.id).filter(d=>!d.archivedAt),deferred=url.searchParams.get('deferReview')==='1',autoReview=deferred?null:await automaticReview.afterUpload(actor,activity,aiProviders?defaultProvider():url.searchParams.get('provider')||defaultProvider(),{privacyConfirmed:url.searchParams.get('workEvidence')==='true'});activityHistory.upload(actor,activity,{batchId,document:doc,documents:submittedDocuments,deferred,review:autoReview,error:autoReview?.error});return send(res,code,{...doc,path:undefined,autoReview});};
         if(match[3]) {
           if(match[2]!=='documents'||req.method!=='DELETE')return send(res,405,{error:'روش درخواست پشتیبانی نمی‌شود.'});
           if(busy.has(activity.id))return send(res,409,{error:'پردازش در حال اجرا است.'});
@@ -426,7 +457,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
             assertActivityHumanWritable(store,store.get(activity.id,'activity'));
             const digest=sha256(bytes); const old=documents.find(d=>d.sha256===digest);
             if(!old&&submissionQuota(store,activity).remaining===0)throw Object.assign(Error('سقف نوبت‌های تحویل این شاخص طبق تنظیمات امتیاز تکمیل شده است.'),{status:409});
-            const provider=url.searchParams.get('provider')||process.env.LLM_PROVIDER||'codex';providerConfig(provider);
+            const provider=(aiProviders?defaultProvider():url.searchParams.get('provider')||defaultProvider());providerConfig(provider);
             if(old){
               if(old.extraction.conversionFailed||['failed','needs_conversion'].includes(old.extraction.status)) {
                 const extraction=await extractWithLog(old.path,extname(name).slice(1).toLowerCase(),old.id,activity,{id:old.id,name:old.name,size:old.size,sha256:old.sha256},provider,url.searchParams.get('visualConsent')==='true');
@@ -452,7 +483,7 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
           busy.add(activity.id);
           try {
           const input=JSON.parse((await body(req)).toString('utf8'));
-          let review;try{review=input.resumeReviewId?await automaticReview.resume(actor,activity,input.resumeReviewId):await automaticReview.queue(actor,activity,input.provider||process.env.LLM_PROVIDER||'codex',{retry:true});}catch(error){if(error.evidenceDisposition?.archivedDocumentIds?.length)activityHistory.blockedAnalysis(actor,activity,documents,error);throw error;}
+          let review;try{review=input.resumeReviewId?await automaticReview.resume(actor,activity,input.resumeReviewId):await automaticReview.queue(actor,activity,input.provider||defaultProvider(),{retry:true});}catch(error){if(error.evidenceDisposition?.archivedDocumentIds?.length)activityHistory.blockedAnalysis(actor,activity,documents,error);throw error;}
           activityHistory.analysis(actor,activity,review);
           return send(res,200,input.resumeReviewId?review:review.status==='queued'?await automaticReview.execute(review):review);
           } finally {busy.delete(activity.id);}
@@ -503,5 +534,5 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const port=Number(process.env.PORT||4273),bindHost=process.env.PANEL_BIND_HOST||'127.0.0.1';
-  createPanelServer({dataRoot:process.env.PANEL_DATA_ROOT,uploadRoot:process.env.PANEL_UPLOAD_ROOT,publicOrigin:process.env.PANEL_PUBLIC_ORIGIN,publicOrigins:(process.env.PANEL_PUBLIC_ORIGINS||'').split(',').map(value=>value.trim()).filter(Boolean)}).listen(port,bindHost,()=>console.log(`KPI Panel listening on ${bindHost}:${port}`));
+  createPanelServer({providerVault:windowsProviderVault(process.cwd()),dataRoot:process.env.PANEL_DATA_ROOT,uploadRoot:process.env.PANEL_UPLOAD_ROOT,publicOrigin:process.env.PANEL_PUBLIC_ORIGIN,publicOrigins:(process.env.PANEL_PUBLIC_ORIGINS||'').split(',').map(value=>value.trim()).filter(Boolean)}).listen(port,bindHost,()=>console.log(`KPI Panel listening on ${bindHost}:${port}`));
 }

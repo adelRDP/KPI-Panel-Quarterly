@@ -4,7 +4,7 @@ import {finalQuarterSnapshot} from './quarter-final-snapshot.mjs';
 import {createQuarterAmendments} from './quarter-amendments.mjs';
 import {quarterlyEvidenceWindow} from './quarterly-evidence-window.mjs';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
-import { providerConfig } from './providers.mjs';
+import { providerConfig as baseProviderConfig } from './providers.mjs';
 import { validateActivity } from './evaluation.mjs';
 import PerformanceModel from '../src/performance-model.js';
 import { quarterMonths, periodBounds } from './quarterly-workflow.mjs';
@@ -44,7 +44,7 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 
 import {normalizeTaskWeights,validateTaskRecurrence,taskDocumentFormats} from './task-definition.mjs';
 
-export function createOrganizationWorkflow(store,workflow,{runModel,notifications,busy=new Set()}={}){
+export function createOrganizationWorkflow(store,workflow,{runModel,notifications,busy=new Set(),providerConfig=baseProviderConfig}={}){
   if(alignmentContractVersion!=='kpi-alignment-v4')fail('مسیر تحلیل باید قرارداد v4 داشته باشد؛ راه‌اندازی متوقف شد.',503);
   const user=id=>typeof id==='string'&&id?workflow.user(id):null;
   const role=(actor,allowed)=>{if(!allowed.includes(actor?.role))fail('برای این عملیات مجوز ندارید.',403);};
@@ -72,7 +72,7 @@ return {period,people:people.map(person=>{const p=workflow.assessmentPosition(pe
   }
   const activePosition=id=>positionAt(id);
   const amendments=createQuarterAmendments(store,workflow);
-  const jobDesignAnalysis=createJobDesignAnalysis(store,{runModel});
+  const jobDesignAnalysis=createJobDesignAnalysis(store,{runModel,providerConfig});
   const isRoleAlignment=design=>['kpi-alignment-v2','kpi-alignment-v3',alignmentContractVersion].includes(design.aiReview?.contractVersion);
   const alignmentCurrent=design=>isRoleAlignment(design)&&design.aiReview.contractVersion===alignmentContractVersion&&jobDesignAnalysis.isCurrentRun(store.get(design.aiReview.runId,'ai-role-run'))&&(!design.aiReview.inheritedFrom||monthCopyProofCurrent(design))&&currentDutiesBasis(design);
   const clarificationContext=design=>{const p=designPosition(design);return clarificationContextHash(design,p,p?policyForPeriod(store,design.period,null,p.unitId):null);};

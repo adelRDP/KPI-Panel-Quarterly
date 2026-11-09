@@ -78,8 +78,16 @@
     const result=await api('/api/providers');
     if(version!==sessionVersion)return;
     if(!providerInitialized){provider=result.defaultProvider;providerInitialized=true;document.querySelector('#aiProvider').value=provider;}
+    const selector=document.querySelector('#aiProvider');
+    for(const option of selector.options){
+      option.disabled=result.providers.some(item=>item.provider===option.value&&item.enabled===false);
+    }
+    if(result.providers.some(item=>item.provider===provider&&item.enabled===false)&&result.providers.some(item=>item.provider===result.defaultProvider&&item.enabled!==false)){
+      provider=result.defaultProvider;
+      selector.value=provider;
+    }
     const state=result.providers.find(p=>p.provider===provider);
-    document.querySelector('#aiConnection').textContent=state?state.message+(state.ready?'':' — آماده نیست'):'ارائه‌دهنده سرور معتبر نیست.';
+    document.querySelector('#aiConnection').textContent=state?state.message+(state.enabled===false?' — غیرفعال':state.ready?'':' — آماده نیست'):'ارائه‌دهنده سرور معتبر نیست.';
   }
   async function refresh() {
     const version=sessionVersion;

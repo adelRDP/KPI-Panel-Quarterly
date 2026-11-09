@@ -1289,7 +1289,7 @@ test('personnel KPI group respects role scope, collapsed sidebar, mobile navigat
 test('admin sidebar groups reuse existing pages and expand without navigating',async t=>{
   const {window,doc,errors,account}=await browser(t);await account('hr-demo');
   const personnel=doc.querySelector('[data-nav-group="personnel"]'),requests=doc.querySelector('[data-nav-group="requests"]'),ai=doc.querySelector('[data-nav-group="ai"]');
-  for(const [group,title,views] of [[doc.querySelector('[data-nav-group="panel-settings"]'),'تنظیمات پنل',['evaluation-settings','score-settings']],[personnel,'دیتای پرسنلی',['updates','chart','organization','duties']],[requests,'درخواست‌ها',['incoming','case-review','incoming-archive']],[ai,'AI',['ai','ai-archive']]]){
+  for(const [group,title,views] of [[doc.querySelector('[data-nav-group="panel-settings"]'),'تنظیمات پنل',['evaluation-settings','score-settings','ai-model-settings']],[personnel,'دیتای پرسنلی',['updates','chart','organization','duties']],[requests,'درخواست‌ها',['incoming','case-review','incoming-archive']],[ai,'AI',['ai','ai-archive']]]){
     assert.equal(group.hidden,false);const toggle=group.querySelector('button'),submenu=group.querySelector('.nav-submenu');
     assert.equal(toggle.type,'button');assert.equal(toggle.getAttribute('aria-label'),title);assert.equal(toggle.getAttribute('aria-controls'),submenu.id);
     assert.deepEqual([...submenu.querySelectorAll('[data-view]')].map(nav=>nav.dataset.view),views);
@@ -1318,7 +1318,7 @@ test('sidebar groups preserve role access, compact rail and mobile navigation',a
     assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').hidden,true);
     assert.equal(doc.querySelector('[data-nav-group="ai"]').hidden,true);
   }
-  await account('hr-demo');assert.equal([...doc.querySelectorAll('.nav-group')].filter(group=>!group.hidden).length,4);assert.equal(personnel.querySelectorAll('[data-view]').length,4);assert.equal(requests.querySelectorAll('[data-view]').length,3);assert.equal(doc.querySelector('[data-nav-group="ai"]').querySelectorAll('[data-view]').length,2);assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').querySelectorAll('[data-view]').length,2);
+  await account('hr-demo');assert.equal([...doc.querySelectorAll('.nav-group')].filter(group=>!group.hidden).length,4);assert.equal(personnel.querySelectorAll('[data-view]').length,4);assert.equal(requests.querySelectorAll('[data-view]').length,3);assert.equal(doc.querySelector('[data-nav-group="ai"]').querySelectorAll('[data-view]').length,2);assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').querySelectorAll('[data-view]').length,3);
   await window.PanelLifecycle.refresh();await delay(120);assert.deepEqual(errors,[]);
 });
 

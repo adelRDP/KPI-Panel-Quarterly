@@ -1,6 +1,6 @@
 import {approvedActivityDeadline} from './activity-exceptions.mjs';
 import {quarterlyEvidenceWindow,QUARTER_EVIDENCE_POLICY} from './quarterly-evidence-window.mjs';
-import {providerConfig} from './providers.mjs';
+import {providerConfig as baseProviderConfig} from './providers.mjs';
 import {sha256,POLICY_VERSION,finalizeReview} from './evaluation.mjs';
 import {loadFullFileEvidence,assertRawFiles,planFileParts,assessFullFile,FILE_REVIEW_VERSION,FILE_SYNTHESIS_VERSION,fileReviewFailureMessage,fileReadingPrompt,FILE_MODEL_TIMEOUT_MS} from './file-assessment.mjs';
 import {submissionRules,delayBreakdown} from './score-rules.mjs';
@@ -14,7 +14,7 @@ const fail=(message,status=409)=>{throw Object.assign(new Error(message),{status
 const now=()=>new Date().toISOString();
 
 // Original review records and scorer; no separate contract or approval stage.
-export function createAutomaticReview(store,workflow,{runModel,notifications,busy,uploadRoot,enabled=true,archiveRejectedEvidence=true}){
+export function createAutomaticReview(store,workflow,{runModel,notifications,busy,uploadRoot,enabled=true,archiveRejectedEvidence=true,providerConfig=baseProviderConfig,assertProvider=()=>{}}){
  let stopped=false,ticking=false;
  const retention=createReviewRetention(store);
  const docs=a=>store.list('document',a.id).filter(d=>!d.archivedAt);
@@ -36,13 +36,16 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  const sourceHash=(a,documents=docs(a))=>sha256(JSON.stringify({task:task(a),context:context(a),documents:documents.map(d=>[d.id,d.sha256,sha256(JSON.stringify(d.extraction))]).sort((x,y)=>x[0].localeCompare(y[0]))}));
  const locked=a=>closedActivity(store,a)||store.list('quarter-evaluation',a.ownerId).some(q=>q.status==='locked'&&q.quarter===a.period);
  async function prepare(actor,a,provider,automatic=false,documentSource=()=>docs(a)){
+  assertProvider(provider);
   assertActivityHumanWritable(store,a);
   if(workflow.user(a.ownerId)?.role==='personnel'&&(workflow.user(a.ownerId)?.isSettled||(/^14\d{2}-Q[1-4]$/.test(a.period)?workflow.userAt(a.ownerId,a.period):workflow.user(a.ownerId))?.isKpiEligible===false))fail('این فرد خارج از فرایند KPI است.',403);
   if(actor?.id!==a.ownerId)fail('بررسی فقط برای شاخص خود فرد مجاز است.',403);
   if(automatic&&(actor.role!=='personnel'||a.assignmentStatus!=='approved'))fail('ارزیابی خودکار فقط برای شاخص منتشرشده پرسنل فعال است.');
   if(locked(a))fail('نتیجه فصل قفل‌شده است؛ بررسی تازه از مسیر جاری مجاز نیست.');
   const documents=documentSource();if(!documents.length)fail('ابتدا مستند بارگذاری کنید.',400);
-  const initialHash=sourceHash(a,documents),evidence=await loadFullFileEvidence(documents,uploadRoot),rules=submissionRules(store,a,documents,{review:true}),config=providerConfig(provider),evaluationContext=context(a);
+  const initialHash=sourceHash(a,documents),evidence=await loadFullFileEvidence(documents,uploadRoot);
+  assertProvider(provider);
+  const rules=submissionRules(store,a,documents,{review:true}),config=providerConfig(provider),evaluationContext=context(a);
   const fresh=store.get(a.id,'activity');if(!fresh||fresh.removedAt||sourceHash(fresh,documentSource())!==initialHash||workflow.user(a.ownerId)?.isSettled||locked(fresh))fail('شاخص یا شواهد هنگام خواندن فایل تغییر کرده است.');
   if(!evidence.chunks.length)fail('هیچ متن قابل ارزیابی استخراج نشده است؛ فایل ذخیره شد اما خوانش یا تبدیل مستند باید تکمیل شود.',400);
   const snapshot=task(a);requireWorkEvidence({task:snapshot,context:evaluationContext},{referenceOnly:true});
@@ -111,7 +114,13 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
    if(!a||a.removedAt||actor?.id!==a.ownerId||workflow.user(a.ownerId)?.isSettled||row.automatic&&actor.role!=='personnel'||sourceHash(a)!==row.sourceHash||locked(a))fail('شاخص، شواهد یا وضعیت همکاری تغییر کرده است؛ نسخه جاری را دوباره ارسال کنید.');
    requireWorkEvidence({task:row.activitySnapshot,context:row.contextSnapshot},{referenceOnly:true});requireWorkEvidence(row.evidenceSnapshot);
    const assertCurrent=async()=>{if(stopped)fail('بررسی متوقف شده است.');const fresh=store.get(id,'activity'),owner=fresh&&workflow.user(fresh.ownerId),periodOwner=fresh&&(/^14\d{2}-Q[1-4]$/.test(fresh.period)?workflow.userAt(fresh.ownerId,fresh.period):owner);if(!fresh||fresh.removedAt||owner?.isSettled||row.automatic&&owner?.role!=='personnel'||owner?.role==='personnel'&&periodOwner?.isKpiEligible===false||sourceHash(fresh)!==row.sourceHash||locked(fresh))fail('شاخص، فایل یا وضعیت همکاری تغییر کرده است؛ نمره اعمال نشد.');await assertRawFiles(docs(fresh),uploadRoot);};
-   output=await assessFullFile({activity:row.activitySnapshot,evidence:row.evidenceSnapshot,context:row.contextSnapshot,provider:row.provider,runModel,assertCurrent,requiredCachedParts:row.resumeReadParts||0,resilientResume:row.resilientResume===true,resilientProcessing:true,
+   const assertModel=()=>{
+    assertProvider(row.provider);
+    if(providerConfig(row.provider).model!==row.model)fail('مدل بررسی تغییر کرده است؛ بررسی را دوباره درخواست کنید.');
+   };
+   assertModel();
+   const runCurrentModel=input=>{assertModel();return runModel(input);};
+   output=await assessFullFile({activity:row.activitySnapshot,evidence:row.evidenceSnapshot,context:row.contextSnapshot,provider:row.provider,runModel:runCurrentModel,assertCurrent,requiredCachedParts:row.resumeReadParts||0,resilientResume:row.resilientResume===true,resilientProcessing:true,
     partCache:async({inputHash})=>{const previous=store.list('review-file-part').find(p=>p.status==='done'&&p.inputHash===inputHash&&p.reviewFingerprint===row.fingerprint&&p.policyVersion===POLICY_VERSION);return previous?{result:previous.result}:null;},
     onProgress:async progress=>{const fresh=store.get(row.id,'review');if(fresh?.status!=='running')fail('نسخهٔ بررسی تغییر کرده است.');store.put('review',{...fresh,fileProcessing:{version:FILE_REVIEW_VERSION,phase:progress.phase,readParts:progress.index,totalParts:progress.total,synthesis:progress.synthesis||null,automaticRetry:progress.automaticRetry||null,validationRetries:progress.validationRetries||progress.diagnostic?.validationRetries||fresh.fileProcessing?.validationRetries||[],diagnostic:progress.diagnostic||null}},id);if(progress.phase==='read')store.put('review-file-part',{reviewId:row.id,reviewFingerprint:row.fingerprint,inputHash:progress.inputHash,index:progress.index,status:'done',policyVersion:POLICY_VERSION,result:progress.result,usage:progress.usage||{},cached:progress.cached,effectivePromptHash:progress.effectivePromptHash,repairAttempts:progress.repairAttempts||0,validationRetries:(progress.validationRetries||[]).filter(item=>item.stage==='reading'&&item.part===progress.index),createdAt:now()},row.id);}});
    if(stopped)return row;
@@ -132,8 +141,9 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  }
  async function afterUpload(actor,a,provider,{privacyConfirmed=false}={}){
   if(!enabled||actor.id!==a.ownerId||actor.role!=='personnel'||a.assignmentStatus!=='approved')return null;
+  try{assertProvider(provider);}catch(error){return {status:'blocked',error:error.message};}
   if(!privacyConfirmed)return {status:'blocked',error:'پیش از ارسال به مدل، نبود حقوق، کلید و گفتگوی شخصی در مستندات انتخاب‌شده را تأیید کنید.',...(archiveRejectedEvidence?{evidenceDisposition:retention.blocked(actor,a,docs(a))}:{})};
-  try{const row=await queue(actor,a,provider,{automatic:true});if(archiveRejectedEvidence)retention.cleanup(row);return {id:row.id,status:row.status,cached:row.cached===true,error:row.error||null};}catch(error){return {status:'blocked',error:error.status?error.message:'ثبت ارزیابی خودکار کامل نشد؛ وضعیت قوانین و شواهد را بررسی کنید.',...(archiveRejectedEvidence?{evidenceDisposition:error.evidenceDisposition||retention.blocked(actor,a,docs(a))}:{})};}
+  try{const row=await queue(actor,a,provider,{automatic:true});if(archiveRejectedEvidence)retention.cleanup(row);return {id:row.id,status:row.status,cached:row.cached===true,error:row.error||null};}catch(error){return {status:'blocked',error:error.status?error.message:'ثبت ارزیابی خودکار کامل نشد؛ وضعیت قوانین و شواهد را بررسی کنید.',...(archiveRejectedEvidence&&error.status!==503?{evidenceDisposition:error.evidenceDisposition||retention.blocked(actor,a,docs(a))}:{})};}
  }
  async function tick(){
   if(stopped||ticking||!enabled||busy.size)return;ticking=true;

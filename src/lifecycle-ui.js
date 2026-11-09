@@ -1,6 +1,6 @@
 (() => {
   const $=selector=>document.querySelector(selector),esc=escapeHtml,api=(path,options)=>window.PanelWorkflow.api(path,options),post=(path,data)=>window.PanelWorkflow.post(path,data);
-const roleViews={caseReview:['personnel','manager','hr'],announcements:['hr'],managerDashboard:['manager'],managerPersonnel:['manager'],peerSurveys:['manager'],chat:['personnel','manager','hr'],notes:['personnel','manager','hr'],quarters:['personnel','manager','hr'],tasks:['manager'],positionReview:['manager'],personnelRequestsArchive:['manager'],organization:['hr'],evaluationSettings:['hr'],scoreSettings:['hr'],updates:['hr'],duties:['hr'],incoming:['hr'],incomingArchive:['hr'],ai:['hr'],aiArchive:['hr'],chart:['personnel','manager','hr'],data:['hr'],appeals:['personnel','hr']};
+const roleViews={caseReview:['personnel','manager','hr'],announcements:['hr'],managerDashboard:['manager'],managerPersonnel:['manager'],peerSurveys:['manager'],chat:['personnel','manager','hr'],notes:['personnel','manager','hr'],quarters:['personnel','manager','hr'],tasks:['manager'],positionReview:['manager'],personnelRequestsArchive:['manager'],organization:['hr'],evaluationSettings:['hr'],scoreSettings:['hr'],aiModelSettings:['hr'],updates:['hr'],duties:['hr'],incoming:['hr'],incomingArchive:['hr'],ai:['hr'],aiArchive:['hr'],chart:['personnel','manager','hr'],data:['hr'],appeals:['personnel','hr']};
   const labels={ai_pending:'در انتظار بررسی AI',ai_failed:'تحلیل AI ناموفق؛ آماده تلاش دوباره',manager_review:'در انتظار بازبینی مدیر',hr_review:'در انتظار بازبینی ادمین',published:'منتشرشده',draft:'پیش‌نویس',needs_revision:'نیازمند اصلاح',rejected:'ردشده',manager_review_position:'در انتظار مدیر مقصد',hr_approval:'در انتظار تصویب ادمین',locked:'قفل‌شده',incomplete:'ناقص؛ بدون صفرسازی',ready:'آماده بررسی',approved:'تأییدشده',returned:'برگشت‌خورده',completed:'تکمیل‌شده',complete:'کامل',partial:'بخشی',quarantined:'قرنطینه‌شده',open:'باز',insufficient:'مشارکت ناکافی؛ بدون امتیاز',collecting:'در حال جمع‌آوری پاسخ'};
   const money=value=>value===null||value===undefined?'—':Number.isFinite(value)?faMoney.format(value)+' تومان':'N/A',pct=value=>value===null||value===undefined?'در انتظار':Number.isFinite(value)?faPercent.format(value)+'٪':'N/A';
   let user=null,positions=[],positionRequests=[],managerRequestsData={positions:[],appeals:[]},designs=[],deadlines=[],quarterRows=[],evaluations=[],appeals=[],campaigns=[],examImports=[],orgChart=null,orgUnits=[],orgSections=[],evaluationSettingsData=null,evaluationModelsData=null,selectedSettingsUnitId=null,modelPreview=null,modelPreviewGeneration=0,selectedServiceCampaignId=null,stagedDesignTasks=[],designDraftEmployeeId=null;
@@ -136,6 +136,110 @@ positionView.innerHTML='<div class="page-heading"><div><p class="eyebrow">مدی
   const orgView=makeView('organization','مدیریت پرسنل','i-settings',roleViews.organization);
   const managerArchiveView=makeView('personnel-requests-archive','آرشیو درخواست‌ها','i-folder',roleViews.personnelRequestsArchive);managerArchiveView.innerHTML='<div class="page-heading"><div><p class="eyebrow">مدیر · سوابق تأیید</p><h1>آرشیو درخواست‌ها</h1><p>درخواست‌های تأییدشده در اینجا نگهداری می‌شوند؛ مرحلهٔ جاری ادمین مشخص است و سابقه بازنویسی نمی‌شود.</p></div></div><section class="panel settings-card"><form id="managerArchiveFilters" class="form-grid"><label>جست‌وجو<input name="search" maxlength="120" type="search" placeholder="نام، سمت یا متن درخواست"></label><label>نوع درخواست<select name="type"><option value="all">همه</option><option value="registration">ثبت پرسنل جدید</option><option value="position">تغییر سمت</option><option value="appeal">اعتراض</option></select></label><button type="submit" class="secondary-button">نمایش</button></form><p id="managerArchiveCount" class="workflow-muted" role="status"></p><div id="managerRequestArchiveList" class="incoming-request-list"></div><div class="design-form-actions"><button type="button" class="secondary-button" id="managerArchivePrev">قبلی</button><span id="managerArchivePage"></span><button type="button" class="secondary-button" id="managerArchiveNext">بعدی</button></div></section>';
   makeView('score-settings','تنظیمات محاسبه امتیاز','i-settings',roleViews.scoreSettings);
+  const aiModelSettingsView=makeView('ai-model-settings','تنظیمات مدل AI','i-ai',roleViews.aiModelSettings);
+  aiModelSettingsView.innerHTML=`
+    <div class="page-heading"><div><h1>تنظیمات مدل AI</h1><p>مدیریت اتصال، مدل و ارائه‌دهندهٔ پیش‌فرض بررسی هوشمند</p></div></div>
+    <section class="panel settings-card ai-model-panel">
+      <div class="panel-heading"><h2>ارائه‌دهندگان بررسی هوشمند</h2><button type="button" class="secondary-button" id="refreshAiModelStatus">به‌روزرسانی وضعیت</button></div>
+      <p id="aiModelStatus" class="workflow-muted" role="status"></p>
+      <dl class="ai-model-summary" id="aiModelSummary" hidden>
+        <div><dt>ارائه‌دهندهٔ پیش‌فرض</dt><dd id="aiModelDefault" dir="auto"></dd></div>
+        <div><dt>بررسی خودکار</dt><dd id="aiModelAutomatic"></dd></div>
+      </dl>
+      <div class="ai-model-providers" id="aiModelProviders"></div>
+      <p class="workflow-muted ai-model-note">تست اتصال از یک نمونهٔ ساختگی استفاده می‌کند. پس از تغییر مدل یا کلید، اتصال را تست و ارائه‌دهنده را فعال کنید.</p>
+    </section>`;
+  let aiModelStatusRequest=0,aiModelWrite=false;
+  async function refreshAiModelStatus(notice=''){
+    if(window.PanelWorkflow.user?.role!=='hr')return;
+    const request=++aiModelStatusRequest;
+    const status=$('#aiModelStatus'),providers=$('#aiModelProviders');
+    const labels={codex:'Codex',openai:'OpenAI API',gemini:'Gemini API'};
+    const summary=$('#aiModelSummary'),refreshButton=$('#refreshAiModelStatus');
+    refreshButton.disabled=true;
+    summary.hidden=true;
+    status.textContent='در حال دریافت وضعیت…';
+    providers.replaceChildren();
+    try{
+      const result=await api('/api/providers/settings');
+      if(request!==aiModelStatusRequest||window.PanelWorkflow.user?.role!=='hr')return;
+      $('#aiModelDefault').textContent=labels[result.defaultProvider]||'نامشخص';
+      $('#aiModelAutomatic').textContent=result.automaticReview?'فعال':'غیرفعال';
+      providers.innerHTML=result.providers.map(provider=>{
+        const isDefault=provider.provider===result.defaultProvider;
+        return `<article class="ai-provider-card" data-default="${isDefault}">
+          <div class="ai-provider-heading"><h3><bdi>${esc(labels[provider.provider]||provider.provider)}</bdi></h3>
+            ${isDefault?'<span class="ai-provider-default">پیش‌فرض</span>':''}</div>
+          <span class="ai-provider-status" data-ready="${Boolean(provider.ready)}">${provider.ready?'آماده':'آماده نیست'}</span>
+          <p>${provider.enabled?'فعال':'غیرفعال'} · ${esc(provider.message)}</p>
+          <p>آخرین تست <bdi>${provider.lastTest?esc(new Date(provider.lastTest.at).toLocaleString('fa-IR')):'انجام نشده'}</bdi>
+            ${provider.lastTest?' · '+(provider.lastTest.ok?'موفق':'ناموفق'):''}</p>
+          ${result.editable?`<form data-ai-provider="${esc(provider.provider)}">
+            <label>نام مدل<input name="model" dir="ltr" required maxlength="160" value="${esc(provider.model||'')}"></label>
+            ${provider.provider==='codex'?'<p>اگر ورود منقضی شد، روی سرور با حساب Codex پنل دوباره وارد شوید.</p>':`
+              <label>کلید API<input type="password" name="apiKey" dir="ltr" autocomplete="new-password" maxlength="2048"
+                placeholder="${provider.hasKey?'کلید ثبت شده':'کلید ثبت نشده'}" ${result.allowKeyEntry?'':'disabled'}></label>
+              <p>${result.allowKeyEntry?'برای حفظ کلید فعلی، این فیلد را خالی بگذارید.':'ثبت کلید از سرور محلی یا HTTPS در دسترس است.'}</p>`}
+            <div class="ai-provider-actions">
+              <button class="secondary-button" type="submit" data-action="save">ذخیره تنظیمات</button>
+              <button class="secondary-button" type="submit" data-action="test" formnovalidate>تست اتصال</button>
+              <button class="secondary-button" type="submit" data-action="toggle" data-enabled="${!provider.enabled}" formnovalidate ${!provider.enabled&&!provider.lastTest?.ok?'disabled':''}>${provider.enabled?'غیرفعال‌سازی':'فعال‌سازی'}</button>
+              ${!isDefault&&provider.enabled&&provider.lastTest?.ok?'<button class="secondary-button" type="submit" data-action="default" formnovalidate>انتخاب پیش‌فرض</button>':''}
+            </div>
+          </form>`:''}
+        </article>`;
+      }).join('');
+      summary.hidden=false;
+      status.textContent=notice||(!result.editable?'مخزن امن تنظیمات روی سرور در دسترس نیست.':'');
+    }catch(error){
+      if(request===aiModelStatusRequest)status.textContent=error.message;
+    }finally{
+      if(request===aiModelStatusRequest)refreshButton.disabled=false;
+    }
+  }
+  $('#refreshAiModelStatus').onclick=()=>{if(!aiModelWrite)refreshAiModelStatus();};
+  window.addEventListener('panel:session',()=>{
+    aiModelStatusRequest++;
+    $('#aiModelSummary').hidden=true;
+    $('#aiModelProviders').replaceChildren();
+    $('#aiModelStatus').textContent='';
+    $('#refreshAiModelStatus').disabled=false;
+  });
+  $('#aiModelProviders').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.target,button=event.submitter,action=button?.dataset.action||'save';
+    if(aiModelWrite||window.PanelWorkflow.user?.role!=='hr')return;
+    const input={};
+    if(action==='save'){
+      input.model=form.elements.model.value.trim();
+      const key=form.elements.apiKey;
+      if(key?.value.trim()){input.apiKey=key.value.trim();key.value='';}
+    }else if(action==='toggle')input.enabled=button.dataset.enabled==='true';
+    else if(form.elements.model.value.trim()!==form.elements.model.defaultValue||form.elements.apiKey?.value){
+      $('#aiModelStatus').textContent='برای استفاده از تغییرات فرم، ابتدا تنظیمات را ذخیره کنید.';
+      return;
+    }
+    aiModelWrite=true;
+    const request=aiModelStatusRequest;
+    const controls=[...aiModelSettingsView.querySelectorAll('button,input')].filter(control=>!control.disabled);
+    controls.forEach(control=>{control.disabled=true;});
+    $('#aiModelStatus').textContent=action==='test'?'در حال بررسی نمونهٔ ساختگی…':'در حال ذخیره…';
+    try{
+      const result=await post('/api/providers/settings/'+form.dataset.aiProvider+'/'+action,input);
+      if(request===aiModelStatusRequest)await refreshAiModelStatus(result.message);
+    }catch(error){if(request===aiModelStatusRequest)$('#aiModelStatus').textContent=error.message;}
+    finally{aiModelWrite=false;controls.forEach(control=>{control.disabled=false;});}
+  });
+  window.addEventListener('panel:view',event=>{
+    if(event.detail==='ai-model-settings')refreshAiModelStatus();
+  });
+  window.addEventListener('panel:session',()=>{
+    aiModelStatusRequest++;
+    $('#refreshAiModelStatus').disabled=false;
+    $('#aiModelSummary').hidden=true;
+    $('#aiModelStatus').textContent='';
+    $('#aiModelProviders').replaceChildren();
+  });
   const settingsView=makeView('evaluation-settings','تنظیمات مدل محاسبه','i-settings',roleViews.evaluationSettings);
   settingsView.innerHTML=`<div class="page-heading"><div><p class="eyebrow">ادمین · سیاست نسخه‌دار</p><h1>تنظیمات مدل محاسبه</h1><p>برای کل سازمان یا یک واحد، مدل نسخه‌دار تعریف کنید. فصل باز و فصل‌های آینده قابل انتخاب‌اند؛ نتیجه‌های قفل‌شده تغییر نمی‌کنند.</p></div></div>
     <div><form id="evaluationSettingsForm" class="panel settings-card"><label>واحد هدف مدل<select name="unitId" id="evaluationSettingsUnit"></select></label><p class="workflow-muted">مدل اختصاصی واحد بر پیش‌فرض سازمان اولویت دارد و فقط بر پرسنل همان واحد اثر می‌گذارد. جمع پنج مؤلفه باید ۱۰۰٪ باشد؛ سهم صفر یعنی آن مؤلفه در مدل محاسبه نمی‌شود.</p><h2>درصد مؤلفه‌های مدل · جمع ۱۰۰٪</h2>
@@ -286,7 +390,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
   const navigationGroups={
     appealRequests:makeNavigationGroup('appeal-requests','درخواست‌های اعتراض','i-appeal',['appeals','case-review'],['personnel','manager']),
     managerRequests:makeNavigationGroup('manager-requests','درخواست‌های پرسنلی','i-inbox',['position-review','personnel-requests-archive'],'manager'),
-    panelSettings:makeNavigationGroup('panel-settings','تنظیمات پنل','i-settings',['evaluation-settings','score-settings']),
+    panelSettings:makeNavigationGroup('panel-settings','تنظیمات پنل','i-settings',['evaluation-settings','score-settings','ai-model-settings']),
     personnel:makeNavigationGroup('personnel','دیتای پرسنلی','i-users',['updates','chart','organization','duties']),
     requests:makeNavigationGroup('requests','درخواست‌ها','i-pulse',['incoming','case-review','incoming-archive']),
     ai:makeNavigationGroup('ai','AI','i-target',['ai','ai-archive']),
@@ -376,7 +480,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     $('#finalExport').hidden=role!=='hr';
     $('#positionEmployee').dispatchEvent(new Event('change'));$('#positionManager').dispatchEvent(new Event('change'));$('#newPersonManager').dispatchEvent(new Event('change'));
   }
-function camelView(id){return {'case-review':'caseReview','manager-dashboard':'managerDashboard','manager-personnel':'managerPersonnel','peer-surveys':'peerSurveys','position-review':'positionReview','personnel-requests-archive':'personnelRequestsArchive','evaluation-settings':'evaluationSettings','score-settings':'scoreSettings','ai-archive':'aiArchive','incoming-archive':'incomingArchive'}[id]||id;}
+function camelView(id){return {'case-review':'caseReview','manager-dashboard':'managerDashboard','manager-personnel':'managerPersonnel','peer-surveys':'peerSurveys','position-review':'positionReview','personnel-requests-archive':'personnelRequestsArchive','evaluation-settings':'evaluationSettings','score-settings':'scoreSettings','ai-model-settings':'aiModelSettings','ai-archive':'aiArchive','incoming-archive':'incomingArchive'}[id]||id;}
   const accounts=()=>window.PanelWorkflow.accounts||[];
   const modelTitle=row=>row.policy?.name||(row.status==='locked'?'مدل ثبت‌شدهٔ نتیجهٔ قفل‌شده':'مدل عمومی سازمان');
   function syncDesignModel(){
@@ -1155,7 +1259,7 @@ return `<tr data-incoming-id="${esc(row.id)}"${type==='appeal'?` data-search-app
     $('#chartScope').textContent=orgChart.scope==='all'?'همهٔ واحدها و ارتباطات گزارش‌دهی':orgChart.scope==='unit'?'اطلاعات شما و چارت واحد':'اطلاعات شما، شخص مافوق و زیرمجموعهٔ مستقیم';
     if(user.role!=='hr'){
 const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.people.find(person=>person.id===self?.managerId),fields=[['نوع دسترسی',user.role==='manager'?'مدیر':'پرسنل','i-appeal'],['کد پرسنلی',user.employeeCode,'i-person-card'],['سمت',user.jobTitle||user.level,'i-briefcase'],['سطح شغلی',user.level,'i-layers'],...(user.role==='manager'?[]:[['بخش',user.jobFamily,'i-org-chart']]),['واحد',user.unitName,'i-building'],['شخص مافوق',parent?.name||'—','i-users'],['شماره تماس',user.phone,'i-phone']];
-      $('#personalInfo').innerHTML=`<div class="personal-info-heading"><div class="personal-info-identity"><h2>مشخصات ${esc(user.name)}</h2><p>${esc([user.jobTitle||user.level,user.unitName].filter(Boolean).join(' · '))}</p></div><div class="personnel-photo personal-info-photo" role="img" aria-label="عکس پرسنلی ${esc(user.name)}؛ هنوز ثبت نشده" title="عکس پرسنلی هنوز ثبت نشده"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div></div><dl class="personal-info-grid">${fields.map(([label,value,icon])=>`<div><dt><svg aria-hidden="true" focusable="false"><use href="#${icon}"/></svg><span>${esc(label)}</span></dt><dd>${esc(value||'ثبت نشده')}</dd></div>`).join('')}</dl><p class="workflow-muted">اطلاعات نمونه‌اند و توسط ادمین تکمیل یا اصلاح می‌شوند.</p>`;
+      $('#personalInfo').innerHTML=`<div class="personal-info-heading"><div class="personal-info-identity"><h2>مشخصات ${esc(user.name)}</h2><p>${esc([user.jobTitle||user.level,user.unitName].filter(Boolean).join(' · '))}</p></div><div class="personnel-photo personal-info-photo" role="img" aria-label="عکس پرسنلی ${esc(user.name)}؛ هنوز ثبت نشده" title="عکس پرسنلی هنوز ثبت نشده"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div></div><dl class="personal-info-grid">${fields.map(([label,value,icon])=>`<div><dt><svg aria-hidden="true" focusable="false"><use href="#${icon}"/></svg><span>${esc(label)}</span></dt><dd>${esc(value||'ثبت نشده')}</dd></div>`).join('')}</dl>`;
     }
     $('#chartContents').innerHTML=orgChart.units.map(unit=>{const people=orgChart.people.filter(person=>person.unitId===unit.id),ids=new Set(people.map(person=>person.id)),visited=new Set();const node=person=>{if(visited.has(person.id))return '';visited.add(person.id);const children=people.filter(row=>row.managerId===person.id);return `<li><article data-search-person="${esc(person.id)}" class="org-person${person.id===user.id?' is-self':''}"><strong>${esc(person.name)}</strong><small>${esc(person.jobTitle||person.jobLevel||'سمت نامشخص')}</small><small>${esc(person.unitName)}</small></article>${children.length?`<ul>${children.map(node).join('')}</ul>`:''}</li>`;};const roots=people.filter(person=>!ids.has(person.managerId));const tree=roots.map(node).join('')+people.filter(person=>!visited.has(person.id)).map(node).join('');return `<section class="org-unit" data-search-unit="${esc(unit.id)}"><h2>${esc(chartUnitLabel(unit.name))}</h2>${tree?`<ul class="org-tree">${tree}</ul>`:'<p class="workflow-muted">فردی در این واحد ثبت نشده است.</p>'}</section>`;}).join('');
   }
@@ -1268,7 +1372,7 @@ const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.peo
     try{
       if(action.dataset.analyzeJob){
         status.textContent='تحلیل شرح وظایف در حال اجراست…';const id=action.dataset.analyzeJob;
-        let data=await api(`/api/org/positions/${id}/analysis`);if(!data.analysis)data=await post(`/api/org/positions/${id}/analysis`,{provider:'codex'});
+        let data=await api(`/api/org/positions/${id}/analysis`);if(!data.analysis)data=await post(`/api/org/positions/${id}/analysis`,{});
         if(actorId!==user?.id)return;jobAnalysisResults.set(id,data);if(area.isConnected){area.querySelector('.job-analysis-result').innerHTML=jobAnalysisHtml(data.analysis);status.textContent='تحلیل ثبت شد؛ شرح وظایف رسمی تغییر نکرد.';}else if(user.role==='hr')renderDuties();
       }
     }catch(error){if(actorId===user?.id&&status.isConnected)status.textContent=error.message||'تحلیل ناموفق؛ دوباره تلاش کنید.';}finally{activeWrites--;if(action.isConnected)action.disabled=false;}
@@ -1292,9 +1396,9 @@ const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.peo
     if(action.hasAttribute('data-refresh-lifecycle'))return window.PanelWorkflow.refresh();
     if(action.dataset.submitQuarter){await post(`/api/org/quarters/${quarterNow()}/employees/${action.dataset.submitQuarter}/submit`,{});message('snapshot فصل برای تأیید ادمین ارسال شد.');}
     if(action.dataset.approveEvaluation||action.dataset.returnEvaluation){const id=action.dataset.approveEvaluation||action.dataset.returnEvaluation,decision=action.dataset.approveEvaluation?'approve':'return';await post(`/api/org/evaluations/${id}/approval`,{decision,reason:decision==='return'?'بازبینی و تکمیل داده/مستند لازم است.':''});message(decision==='approve'?'ارزیابی فصل قفل شد؛ خروجی اکسل نهایی برای ادمین آماده است.':'ارزیابی برای بازبینی برگشت خورد.');}
-    if(action.dataset.analyzeDesign){message('بررسی AI در حال اجراست…');await post(`/api/org/designs/${action.dataset.analyzeDesign}/analyze`,{provider:'codex'});}
+    if(action.dataset.analyzeDesign){message('بررسی AI در حال اجراست…');await post(`/api/org/designs/${action.dataset.analyzeDesign}/analyze`,{});}
     if(action.dataset.editDesign){const previous=designs.find(design=>design.id===action.dataset.editDesign);if(previous){loadDesignRevision(previous,Number(action.dataset.taskIndex||0));message('پیش‌نویس در فرم بالا بارگذاری شد؛ تغییرات را ذخیره کنید.');$('#designForm').scrollIntoView?.({behavior:'smooth',block:'start'});}return;}
-    if(action.dataset.publishDesign){message('پیش‌نویس در حال ارسال مستقیم برای بررسی AI است…');try{await post(`/api/org/designs/${action.dataset.publishDesign}/publish`,{provider:'codex',draftRevision:designs.find(d=>d.id===action.dataset.publishDesign)?.draftRevision});message('ارسال و بررسی AI انجام شد؛ نتیجه و مرحلهٔ بعد در فهرست منتشرشده‌ها مشخص است.');}finally{await refresh();}return;}
+    if(action.dataset.publishDesign){message('پیش‌نویس در حال ارسال مستقیم برای بررسی AI است…');try{await post(`/api/org/designs/${action.dataset.publishDesign}/publish`,{draftRevision:designs.find(d=>d.id===action.dataset.publishDesign)?.draftRevision});message('ارسال و بررسی AI انجام شد؛ نتیجه و مرحلهٔ بعد در فهرست منتشرشده‌ها مشخص است.');}finally{await refresh();}return;}
     if(action.dataset.deleteDesign){const id=action.dataset.deleteDesign,design=designs.find(row=>row.id===id);if(!design||!confirm(design.status==='draft'?'این پیش‌نویس حذف شود؟':'این رکورد و تخصیص فعالش حذف شوند؟ سابقه، مستندات و نتایج قفل‌شده حفظ می‌شوند.'))return;await post(`/api/org/designs/${id}/delete`,{});if($('#designForm').dataset.draftId===id)resetDesignForm();message('رکورد از فهرست فعال حذف شد؛ سابقه محفوظ است.');}
     if(action.dataset.reviewDesign){const decision=action.dataset.decision,manual=decision==='approve'&&designs.find(row=>row.id===action.dataset.reviewDesign)?.aiReview?.result?.humanReviewRequired;if(manual){openHumanReviewDialog(action);return;}await post(`/api/org/designs/${action.dataset.reviewDesign}/review`,{decision,reason:decision==='return'?'معیار یا نگاشت وظیفه باید اصلاح شود.':''});}
     if(action.dataset.approveDesign||action.dataset.returnDesign){const id=action.dataset.approveDesign||action.dataset.returnDesign,decision=action.dataset.approveDesign?'approve':'return',manual=decision==='approve'&&designs.find(row=>row.id===id)?.aiReview?.result?.humanReviewRequired;if(manual){openHumanReviewDialog(action);return;}await post(`/api/org/designs/${id}/approval`,{decision,reason:decision==='return'?'بازبینی شرح وظیفه و معیار لازم است.':''});}

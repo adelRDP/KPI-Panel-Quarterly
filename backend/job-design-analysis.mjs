@@ -1,6 +1,6 @@
 import {quarterlyEvidenceWindow,QUARTER_EVIDENCE_POLICY} from './quarterly-evidence-window.mjs';
 import {createHash,randomUUID} from 'node:crypto';
-import {providerConfig} from './providers.mjs';
+import {providerConfig as baseProviderConfig} from './providers.mjs';
 import {readFileSync} from 'node:fs';
 import {stabilityVersion,stabilityHash,maxCorrectionRounds,normalizedCriteria,taskFacts,applyStoredChanges,priorContext,restoreLockedReviews,normalizeStaticJudgments,findingsFor} from './alignment-stability.mjs';
 import {humanReviewPolicyVersion} from './human-review-policy.mjs';
@@ -151,7 +151,7 @@ const clarificationPrompt='پاسخ‌های مدیر به ابهام‌های �
 export function buildAnalysisPrompt(stage,envelope){
   return prepareAnalysisPrompt(commonPrompt+'\n'+stagePrompts[stage]+(envelope.stagePayload.clarificationContractVersion===clarificationContractVersion?'\n'+clarificationPrompt:'')+'\nدر citations و supportingReferences فقط referenceId بند مرتبط را انتخاب کنید. سرور نقل‌قول دقیق و نسخه را از همان snapshot بازیابی می‌کند؛ شناسه مرجع نسازید.',envelope);
 }
-export function createJobDesignAnalysis(store,{runModel}={}){
+export function createJobDesignAnalysis(store,{runModel,providerConfig=baseProviderConfig}={}){
   // Git/Windows line endings are not a change to instructions or implementation.
   // Retain exact historical LF/CRLF hashes, but never normalize evidence or other text differences.
   const equivalentCodeHashes=file=>{const raw=readFileSync(new URL(file,import.meta.url),'utf8'),lf=raw.replace(/\r\n/g,'\n');return [...new Set([digest(lf),digest(lf.replace(/\n/g,'\r\n')),digest(raw)])];};

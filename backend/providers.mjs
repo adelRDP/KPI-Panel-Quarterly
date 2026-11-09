@@ -8,6 +8,8 @@ import { resultSchema } from './evaluation.mjs';
 const exec = promisify(execFile);
 const DEFAULT_CODEX_MODEL = 'gpt-6-luna';
 const DEFAULT_CODEX_REASONING = 'medium';
+export const providerIds=['codex','openai','gemini'];
+export const providerKey=provider=>provider==='codex'?undefined:process.env[provider.toUpperCase()+'_API_KEY'];
 async function codexPath() {
   if(process.env.CODEX_PATH){if(!isAbsolute(process.env.CODEX_PATH))throw new Error('CODEX_PATH باید مسیر مطلق باشد.');return process.env.CODEX_PATH;}
   const result=await exec(process.platform==='win32'?'where.exe':'which',['codex'],{timeout:5000,windowsHide:true});
@@ -15,7 +17,7 @@ async function codexPath() {
   if(!path||!isAbsolute(path))throw new Error('مسیر Codex پیدا نشد؛ CODEX_PATH را تنظیم کنید.');return path;
 }
 export function providerConfig(provider) {
-  if(!['codex','openai','gemini'].includes(provider))throw new Error('ارائه‌دهنده مدل معتبر نیست.');
+  if(!providerIds.includes(provider))throw new Error('ارائه‌دهنده مدل معتبر نیست.');
   return {provider,model:process.env[provider==='codex'?'CODEX_MODEL':provider==='openai'?'OPENAI_MODEL':'GEMINI_MODEL']|| (provider==='codex'?DEFAULT_CODEX_MODEL:null)};
 }
 export async function providerStatus() {
@@ -29,13 +31,14 @@ export async function providerStatus() {
   return {defaultProvider:process.env.LLM_PROVIDER||'codex',providers:[codex,
     ...['openai','gemini'].map(provider=>{const ready=!!(process.env[provider.toUpperCase()+'_API_KEY']&&process.env[provider.toUpperCase()+'_MODEL']);return {provider,ready,message:ready?'تنظیمات موجود است؛ اتصال هنگام ارزیابی آزموده می‌شود.':`نیازمند ${provider.toUpperCase()}_API_KEY و ${provider.toUpperCase()}_MODEL روی سرور`};})]};
 }
-export async function assess({provider,prompt,schema=resultSchema,images=[],timeoutMs=120000}) {
+export async function assess({provider,prompt,schema=resultSchema,images=[],timeoutMs=120000},{model,apiKey}={}) {
   if(!Number.isInteger(timeoutMs)||timeoutMs<1000||timeoutMs>300000)throw new Error('مهلت اجرای مدل معتبر نیست.');
   if(Buffer.byteLength(prompt)>50000)throw new Error('ورودی مدل از سقف مجاز عبور کرده است.');
   if(images.length>5)throw new Error('حداکثر ۵ تصویر در هر تبدیل.');
   const visual=[];let imageBytes=0;
   for(const image of images){const bytes=await readFile(image.path);imageBytes+=bytes.length;if(imageBytes>8*1024*1024)throw new Error('تصاویر بیش از سقف تبدیل هستند.');visual.push({...image,data:bytes.toString('base64')});}
   const config=providerConfig(provider);
+  if(model!==undefined)config.model=model;
   if(provider==='codex') {
     const {Codex}=await import('@openai/codex-sdk');
     const path=await codexPath();
@@ -56,7 +59,7 @@ export async function assess({provider,prompt,schema=resultSchema,images=[],time
     } finally {await rm(workingDirectory,{recursive:true,force:true,maxRetries:3}).catch(()=>{});}
   }
   if(!config.model)throw new Error('نام مدل در تنظیمات سرور تعیین نشده است.');
-  const key=process.env[provider==='openai'?'OPENAI_API_KEY':'GEMINI_API_KEY'];
+  const key=apiKey??providerKey(provider);
   if(!key)throw new Error('کلید API ارائه‌دهنده روی سرور تنظیم نشده است.');
   const request=provider==='openai'?{
     url:'https://api.openai.com/v1/responses', headers:{Authorization:`Bearer ${key}`},

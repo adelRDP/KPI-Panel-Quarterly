@@ -75,7 +75,7 @@
   document.addEventListener('pointerdown',event=>{if(!periodForm.hidden&&!periodForm.contains(event.target)&&!periodControl.contains(event.target))closePeriod();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!periodForm.hidden){event.preventDefault();closePeriod(true);}});
   window.addEventListener('resize',positionPeriod);headerControls.addEventListener('scroll',positionPeriod);
-  function updatePeriodVisibility(view){closePeriod();periodControl.hidden=['announcements','chat','notes','duties','incoming-archive','personnel-requests-archive','position-review','manager-personnel','score-settings'].includes(view)||session?.user.role==='personnel'&&view==='chart';periodDivider.hidden=periodControl.hidden;updatePeriodLabel();}
+  function updatePeriodVisibility(view){closePeriod();periodControl.hidden=['announcements','chat','notes','duties','incoming-archive','personnel-requests-archive','position-review','manager-personnel','score-settings','ai-model-settings'].includes(view)||session?.user.role==='personnel'&&view==='chart';periodDivider.hidden=periodControl.hidden;updatePeriodLabel();}
   for(const [id,title,iconId] of [['assignments','شاخص‌های روتین','i-file'],['projectAssignments','شاخص‌های پروژه‌ای','i-folder'],['team','عملکرد واحد','i-users'],['surveys','رضایت‌سنجی پرسنل','i-pulse'],['proposals','پیشنهاد تسک و شاخص','i-plus']]){
     const navIcon=({assignments:'i-checklist',team:'i-chart-bars',surveys:'i-checklist'})[id]||iconId;
     const nav=document.createElement('button');nav.className='nav-item';nav.dataset.view=id;nav.title=title;nav.setAttribute('aria-label',title);nav.hidden=true;nav.innerHTML=icon(navIcon)+`<span>${title}</span>`;nav.onclick=()=>showView(id);$('.main-nav').append(nav);
