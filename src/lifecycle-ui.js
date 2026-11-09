@@ -463,7 +463,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     syncNavigationGroups(roleChanged);
     const baseRoles={dashboard:['personnel'],assignments:['personnel'],projectAssignments:['personnel'],team:['manager'],surveys:['manager','personnel','hr'],reviews:[],proposals:[],documents:[],users:[],activity:[],settings:[]};
     for(const [view,allowed] of Object.entries(baseRoles)){const nav=$(`[data-view="${view}"]`);if(nav)nav.hidden=!allowed.includes(role);}
-    const surveyNav=$('[data-view="surveys"]'),surveyName='نظرسنجی پرسنل';surveyNav.title=surveyName;surveyNav.setAttribute('aria-label',surveyName);surveyNav.querySelector('span').textContent=surveyName;
+    const surveyNav=$('[data-view="surveys"]'),surveyName=role==='manager'?'رضایت‌سنجی پرسنل':'نظرسنجی پرسنل';surveyNav.title=surveyName;surveyNav.setAttribute('aria-label',surveyName);surveyNav.querySelector('span').textContent=surveyName;
     if(role==='hr'&&$('#peerSurveyExcelPanel'))$('#peerSurveyExcelPanel').before(surveyExtra);else (role==='manager'?peerSurveyView:$('#view-surveys')).append(surveyExtra);
     $('#view-surveys .page-heading h1').textContent=role==='manager'?'نظرسنجی پرسنل':'نظرسنجی‌های دوره';
     $('#view-surveys .page-heading .eyebrow').textContent=role==='manager'?'مدیر مستقیم · ارزیابی پرسنل':'مدیر مستقیم · همکاران خدمات';
@@ -1198,7 +1198,10 @@ $('#dutiesList').innerHTML=table(['پرسنل','کد پرسنلی','سمت','و�
       if(user.role==='manager'){actions=row.status==='manager_review'?`<button type="button" class="primary-button" data-review-appeal="${esc(row.id)}" data-decision="approve">تأیید و ارجاع</button><button type="button" class="secondary-button" data-review-appeal="${esc(row.id)}" data-decision="return">برگشت برای اصلاح</button><button type="button" class="secondary-button" data-review-appeal="${esc(row.id)}" data-decision="reject">رد با توضیح</button>`:'';if(row.status==='manager_review')body+=`<form class="appeal-upload-form" data-appeal-upload="${esc(row.id)}"><label>افزودن فایل مستند<input type="file" name="files" multiple aria-label="فایل‌های مستند درخواست"></label><button type="submit" class="secondary-button">بارگذاری فایل</button></form>`;}
     }
     const reviewReasons=type==='design'&&!archived?'':`${row.managerReview?.reason?`<p>دلیل بازبینی مدیر: ${esc(row.managerReview.reason)}</p>`:''}${row.hrReview?.reason?`<p>دلیل تصمیم ادمین: ${esc(row.hrReview.reason)}</p>`:''}`;
-    return `<header class="incoming-detail-heading"><div><h3>${esc(incomingName(row))} · ${esc(incomingTypeLabels[type])}</h3><p>${esc(incomingPeriod(type,row))}</p></div><button type="button" class="secondary-button" data-close-incoming-detail>بستن جزئیات</button></header>${body}${reviewReasons}${archived?'':`<div class="design-form-actions">${actions}</div>`}<p class="incoming-detail-status" role="status" aria-live="polite"></p>`;
+    const closeButton='<button type="button" class="secondary-button" data-close-incoming-detail>بستن جزئیات</button>';
+    const designActionsInHeader=type==='design'&&!archived;
+    const headingActions=designActionsInHeader?`<div class="incoming-detail-actions">${actions}${closeButton}</div>`:closeButton;
+    return `<header class="incoming-detail-heading"><div><h3>${esc(incomingName(row))} · ${esc(incomingTypeLabels[type])}</h3><p>${esc(incomingPeriod(type,row))}</p></div>${headingActions}</header>${body}${reviewReasons}${archived||designActionsInHeader?'':`<div class="design-form-actions">${actions}</div>`}<p class="incoming-detail-status" role="status" aria-live="polite"></p>`;
   }
   function renderIncomingRows(id,type,rows){
     const list=$('#'+id);list.classList.add('incoming-request-list');
