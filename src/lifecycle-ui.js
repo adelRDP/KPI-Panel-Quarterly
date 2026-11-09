@@ -1298,11 +1298,59 @@ const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.peo
     }else $('#serviceSurveyArea').innerHTML=`<div class="panel-heading"><div><h2>نظرسنجی همکاران</h2><p>پاسخ‌ها از رضایت مدیر و بازخورد شخصی جدا هستند.</p></div></div>${campaigns.map(detail).join('')||'<p class="workflow-muted">نظرسنجی فعالی برای این نقش/واحد وجود ندارد.</p>'}`;
     if(role!=='manager')$('#view-surveys .settings-grid').hidden=true;
   }
+  const examImportDialog=document.createElement('dialog');
+  examImportDialog.id='examImportDialog';
+  examImportDialog.className='activity-dialog';
+  examImportDialog.setAttribute('aria-labelledby','examImportDialogTitle');
+  examImportDialog.innerHTML='<header class="activity-dialog-header"><h2 id="examImportDialogTitle">جزئیات بارگذاری آزمون</h2></header><div class="activity-dialog-body"></div><footer class="activity-dialog-footer"><button type="button" class="secondary-button" autofocus>بستن</button></footer>';
+  document.body.append(examImportDialog);
+  const examImportDialogBody=examImportDialog.querySelector('.activity-dialog-body');
+  const examImportDialogClose=examImportDialog.querySelector('button');
+  let examImportOpener=null;
+  function closeExamImportDetails(restoreFocus=true){
+    if(examImportDialog.open){
+      if(typeof examImportDialog.close==='function')examImportDialog.close();
+      else examImportDialog.removeAttribute('open');
+    }
+    examImportDialogBody.replaceChildren();
+    if(restoreFocus&&examImportOpener){
+      const id=examImportOpener.dataset.examImportDetails;
+      const opener=examImportOpener.isConnected?examImportOpener:
+        [...document.querySelectorAll('[data-exam-import-details]')].find(button=>button.dataset.examImportDetails===id);
+      opener?.focus();
+    }
+    examImportOpener=null;
+  }
+  examImportDialogClose.onclick=()=>closeExamImportDetails();
+  examImportDialog.addEventListener('cancel',event=>{event.preventDefault();closeExamImportDetails();});
+  window.addEventListener('panel:session',()=>closeExamImportDetails(false));
+  window.addEventListener('panel:view',event=>{if(event.detail!=='data')closeExamImportDetails(false);});
+  $('#workflowPeriod').addEventListener('change',()=>closeExamImportDetails(false));
+  function showExamImportDetails(row,opener){
+    if(!row||user?.role!=='hr')return;
+    const rejected=row.quarantined||[];
+    const details=[
+      ['فصل',window.PanelWorkflow.quarterLabel(row.quarter)],['شناسهٔ بسته',row.batchKey],
+      ['تاریخ ثبت',new Date(row.createdAt).toLocaleString('fa-IR')],
+      ['ثبت‌کننده',accounts().find(account=>account.id===row.createdBy)?.name||row.createdBy],
+      ['فایل / روش',row.fileName||'ورود دستی'],['وضعیت',labels[row.status]||row.status],
+      ['تعداد سطرها',fa.format(row.rowCount??row.importedCount+rejected.length)],
+      ['ثبت‌شده',fa.format(row.importedCount)],['قرنطینه‌شده',fa.format(rejected.length)]
+    ];
+    examImportDialogBody.innerHTML=`<dl class="exam-import-detail-meta">${details.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd><bdi>${esc(value||'—')}</bdi></dd></div>`).join('')}</dl>
+      <h3>ردیف‌های قرنطینه‌شده</h3>${table(['کد یا شناسهٔ پرسنلی','مرجع','دلیل'],rejected.map(item=>`<tr><td><bdi>${esc(item.employeeCode||item.employeeId||'—')}</bdi></td><td><bdi>${esc(item.reference||'—')}</bdi></td><td>${esc(item.reason||'—')}</td></tr>`).join(''),'ردیفی قرنطینه نشده است.')}`;
+    examImportOpener=opener;
+    if(typeof examImportDialog.showModal==='function')examImportDialog.showModal();
+    else examImportDialog.setAttribute('open','');
+    examImportDialogClose.focus();
+  }
   function renderData(){
     if(user?.role!=='hr')return;
-    $('#examImportArchive').innerHTML=table(['تاریخ و ثبت‌کننده','فصل / شناسه بسته','فایل / روش','سطرها','ثبت‌شده','قرنطینه / وضعیت','اقدام'],examImports.map(row=>`<tr><td>${esc(new Date(row.createdAt).toLocaleString('fa-IR'))}<br><small>${esc(accounts().find(account=>account.id===row.createdBy)?.name||row.createdBy)}</small></td><td>${esc(window.PanelWorkflow.quarterLabel(row.quarter))}<br><small dir="ltr">${esc(row.batchKey)}</small></td><td>${esc(row.fileName||'ورود دستی')}</td><td>${fa.format(row.rowCount??row.importedCount+(row.quarantined?.length||0))}</td><td>${fa.format(row.importedCount)}</td><td>${fa.format(row.quarantined?.length||0)} · ${state(row.status)}</td><td><button type="button" class="secondary-button" data-remove-exam-import="${esc(row.id)}" aria-label="حذف رکورد ${esc(row.batchKey)} از آرشیو">حذف</button></td></tr>`).join(''),'هنوز بسته‌ای بارگذاری نشده است.');
+    $('#examImportArchive').innerHTML=table(['تاریخ و ثبت‌کننده','فصل / شناسه بسته','فایل / روش','سطرها','ثبت‌شده','قرنطینه / وضعیت','اقدام'],examImports.map(row=>`<tr><td>${esc(new Date(row.createdAt).toLocaleString('fa-IR'))}<br><small>${esc(accounts().find(account=>account.id===row.createdBy)?.name||row.createdBy)}</small></td><td>${esc(window.PanelWorkflow.quarterLabel(row.quarter))}<br><small dir="ltr">${esc(row.batchKey)}</small></td><td>${esc(row.fileName||'ورود دستی')}</td><td>${fa.format(row.rowCount??row.importedCount+(row.quarantined?.length||0))}</td><td>${fa.format(row.importedCount)}</td><td>${fa.format(row.quarantined?.length||0)} · ${state(row.status)}</td><td><div class="exam-import-actions"><button type="button" class="secondary-button" data-exam-import-details="${esc(row.id)}" aria-haspopup="dialog" aria-controls="examImportDialog">نمایش جزئیات</button><button type="button" class="secondary-button" data-remove-exam-import="${esc(row.id)}" aria-label="حذف رکورد ${esc(row.batchKey)} از آرشیو">حذف</button></div></td></tr>`).join(''),'هنوز بسته‌ای بارگذاری نشده است.');
   }
   $('#examImportArchive').onclick=async event=>{
+    const details=event.target.closest('[data-exam-import-details]');
+    if(details){showExamImportDetails(examImports.find(row=>row.id===details.dataset.examImportDetails),details);return;}
     const button=event.target.closest('[data-remove-exam-import]');if(!button)return;
     if(!window.confirm('این رکورد از آرشیو پنهان شود؟ امتیازهای ثبت‌شدهٔ پرسنل و گزارش ممیزی حذف نمی‌شوند.'))return;
     button.disabled=true;try{await post('/api/org/exams/imports/remove',{id:button.dataset.removeExamImport});await refresh();message('رکورد از آرشیو حذف شد؛ نتیجه‌های آزمون و گزارش ممیزی حفظ شدند.');}catch(error){button.disabled=false;message(error.message,true);}

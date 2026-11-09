@@ -73,7 +73,8 @@ test('HTTP protects admin-only import and archive and permits an authorized prev
  const session=await(await fetch(base+'/api/session')).json();
  async function req(path,body,token=session.token){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{'x-panel-token':token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};}
  const preview=await req('/api/org/surveys/import',{...input,preview:true});assert.equal(preview.status,200);assert.equal(preview.data.importedCount,4);
- assert.equal((await req('/api/org/surveys/import',{...input,confirm:true,fingerprint:preview.data.fingerprint})).data.importedCount,4);
+ const confirmed=await req('/api/org/surveys/import',{...input,confirm:true,fingerprint:preview.data.fingerprint});
+ assert.equal(confirmed.status,200,JSON.stringify(confirmed.data));assert.equal(confirmed.data.importedCount,4);
  for(const userId of ['manager','employee-0']){const switched=await req('/api/session',{userId});const token=switched.data.token;assert.equal((await req('/api/org/surveys/imports',null,token)).status,403);assert.equal((await req('/api/org/surveys/import',{...input,preview:true},token)).status,403);session.token=token;}
 });
 

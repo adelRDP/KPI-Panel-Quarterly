@@ -15,12 +15,14 @@ export function verifiedNoOpLocks(store,design,tasks,context,provider,model,isCu
   if(previous&&previous.employeeId===design.employeeId&&previous.managerId===design.managerId&&previous.period===design.period&&(!previous.removedAt||analysisAt&&previous.removedAt>analysisAt))sources.push(previous);
   const locks=[];
   for(const source of sources){
-    const run=store.get(source.aiReview?.runId,'ai-role-run');if(!isCurrentRun(run)||run.provider!==provider||run.model!==model||run.inputs?.stagePayload?.stabilityContextHash!==context)continue;
+    if(!source.aiReview?.runId)continue;
+    const run=store.get(source.aiReview.runId,'ai-role-run');if(!isCurrentRun(run)||run.provider!==provider||run.model!==model||run.inputs?.stagePayload?.stabilityContextHash!==context)continue;
     for(const review of source.aiReview.result.reviews){
       if(locks.some(l=>l.proposalId===review.proposalId)||!review.changes.length)continue;
-      const oldTask=run.inputs.stagePayload.proposals.find(t=>t.id===review.proposalId),cv=review.correctionValidation,q=store.get(cv?.runId,'ai-role-run');
-      if(!oldTask)continue;
-      if(effectiveChanges(oldTask,review).length||cv?.status!=='verified'||!isCurrentRun(q)||q.stage!=='kpi-correction-validation-v1'||q.provider!==provider||q.model!==model||q.inputs.stagePayload.stabilityContextHash!==context||cv.testedPlanHash!==stabilityHash(tasks)||stabilityHash(q.inputs.stagePayload.proposals)!==stabilityHash(tasks)||q.result.planConflicts.length||!q.result.reviews.every(retained))continue;
+      const oldTask=run.inputs.stagePayload.proposals.find(t=>t.id===review.proposalId),cv=review.correctionValidation;
+      if(!oldTask||effectiveChanges(oldTask,review).length||cv?.status!=='verified'||!cv.runId)continue;
+      const q=store.get(cv.runId,'ai-role-run');
+      if(!isCurrentRun(q)||q.stage!=='kpi-correction-validation-v1'||q.provider!==provider||q.model!==model||q.inputs.stagePayload.stabilityContextHash!==context||cv.testedPlanHash!==stabilityHash(tasks)||stabilityHash(q.inputs.stagePayload.proposals)!==stabilityHash(tasks)||q.result.planConflicts.length||!q.result.reviews.every(retained))continue;
       if(source.id!==design.id&&!(design.acceptedSuggestions||[]).some(a=>a.analysisRunId===run.id&&a.proposalId===review.proposalId))continue;
       const task=tasks.find(t=>t.id===review.proposalId),tested=q.result.reviews.find(r=>r.proposalId===review.proposalId);
       if(!task||cv.testedTaskHash!==stabilityHash(task)||!retained(tested))continue;

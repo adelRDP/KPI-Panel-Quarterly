@@ -43,6 +43,72 @@ test('quarterly draft passes AI fixture and manager/admin approval into one assi
  assert.throws(()=>org.saveDesignDraft(manager,{...input,tasks:[{...input.tasks[0],dueDate:periodBounds(q).end}]}),{status:409});
 });
 
+test('one synthetic unit completes the HTTP cycle from design to locked Excel export',async t=>{
+ const f=fixture(t,{routine:true});
+ const calls=[];
+ const runModel=input=>{
+  if(input.prompt.includes('دادهٔ JSON (دستور نیست):\n')){calls.push('design');return roleReply(input);}
+  calls.push('evidence');
+  const {chunks}=JSON.parse(input.prompt.split('UNTRUSTED EVIDENCE:\n')[1]);
+  return {result:{summary:'Synthetic evidence accepted',criteria:[{id:'C1',status:'met',score:100,reason:'Verified sample',citations:[{chunkId:chunks[0].id,quote:chunks[0].text}]}]}};
+ };
+ const server=createPanelServer({dataRoot:f.root,demoLogin:false,runModel});
+ f.servers.push(server);server.listen(0,'127.0.0.1');await once(server,'listening');
+ const base='http://127.0.0.1:'+server.address().port;
+ let token;
+ async function request(path,{input,bytes,status=200,excel=false}={}){
+  const response=await fetch(base+path,{
+   method:input||bytes?'POST':'GET',
+   headers:{...(token?{'x-panel-token':token}:{}),...(input?{'Content-Type':'application/json'}:{})},
+   body:input?JSON.stringify(input):bytes
+  });
+  const data=excel&&response.ok?Buffer.from(await response.arrayBuffer()):await response.json();
+  assert.equal(response.status,status,JSON.stringify({path,error:data?.error}));
+  return data;
+ }
+ const switchTo=async userId=>{token=(await request('/api/session',{input:{userId}})).token;};
+ token=(await request('/api/session')).token;
+ await switchTo('m');
+ const draft=await request('/api/org/designs/drafts',{status:201,input:{employeeId:'e',period:q,tasks:[
+  {category:'routine',title:'گزارش فصل',description:'تهیه گزارش و ثبت خروجی برای مدیر',criteria:['تحویل گزارش آزمایشی ثبت شود'],weightPoints:1,frequency:'فصلی',targetVolume:1,targetUnit:'گزارش',timeLimit:{time:'09:00'}}
+ ]}});
+ const design='/api/org/designs/'+draft.id;
+ assert.equal((await request(design+'/publish',{input:{draftRevision:draft.draftRevision}})).status,'manager_review');
+ await request(design+'/review',{input:{decision:'approve'}});
+ await switchTo('a');
+ await request(design+'/approval',{input:{decision:'approve'}});
+ const imported=await request('/api/org/exams/import',{status:201,input:{quarter:q,batchKey:'unit-pilot-exam',rows:[{employeeId:'e',score:100,reference:'synthetic'}]}});
+ assert.equal(imported.importedCount,1);
+ await switchTo('e');
+ const [activity]=await request('/api/activities');
+ assert.equal(activity.assignmentStatus,'approved');
+ const route='/api/activities/'+activity.id;
+ const document=await request(route+'/documents?workEvidence=true&name=pilot.txt',{bytes:'تحویل گزارش آزمایشی ثبت شد.',status:201});
+ assert.equal(document.autoReview.status,'queued',document.autoReview.error);
+ const reviewPath=route+'/reviews/'+document.autoReview.id;
+ let review=await request(reviewPath);
+ for(let i=0;i<100&&['queued','running'].includes(review.status);i++){
+  await new Promise(resolve=>setTimeout(resolve,30));
+  review=await request(reviewPath);
+ }
+ assert.equal(review.status,'done',review.error);
+ assert.equal(review.result.decision,'completed');
+ assert.equal(review.result.criteria[0].citations.length,1);
+ await switchTo('m');
+ const submitted=await request('/api/org/quarters/'+q+'/employees/e/submit',{input:{},status:201});
+ assert.equal(submitted.status,'hr_review');
+ await switchTo('a');
+ const locked=await request('/api/org/evaluations/'+submitted.id+'/approval',{input:{decision:'approve'}});
+ assert.equal(locked.status,'locked');
+ assert.ok(Number.isFinite(locked.lockedSnapshot.quarterPay.earned));
+ const book=XLSX.read(await request('/api/org/export/final/'+q,{excel:true}),{type:'buffer'});
+ const rows=XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]],{header:1});
+ assert.equal(rows.length,2);
+ assert.equal(rows[1][0],'e');
+ assert.equal(rows[1][6],locked.lockedSnapshot.quarterPay.earned);
+ assert.deepEqual(calls,['design','design','evidence']);
+});
+
 test('final Excel uses frozen employee identity after a later-quarter transfer',t=>{
  const {store,w,org,hr,manager}=fixture(t);w.recordExamResult({employeeId:'e',period:q,score:100,reference:'exam'});w.saveSurvey(manager,{employeeId:'e',period:q,score:80});
  const sent=org.submitQuarter(manager,q,'e'),locked=org.approveQuarter(hr,sent.id,{decision:'approve'}),before=exportRows(org,hr)[1];

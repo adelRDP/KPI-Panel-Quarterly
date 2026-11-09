@@ -34,7 +34,8 @@ export function createNotificationCenter(store,workflow,{announcements}={}){
     return {count};
   }
   function fromAudit(event,{record,serviceRespondents}={}){
-    const {action,actorId,entityId}=event,person=workflow.user(record?.employeeId||record?.ownerId),managerId=record?.managerId||person?.managerId;
+    const {action,actorId,entityId}=event,personId=record?.employeeId||record?.ownerId;
+    const person=personId?workflow.user(personId):null,managerId=record?.managerId||person?.managerId;
     const emit=(recipientIds,kind,title,description,view)=>publish({eventKey:event.id,recipientIds,actorId,kind,title,description,view,entityId});
     switch(action){
       case 'person.created':emit([record?.managerId,record?.id],'action','پرسنل جدید ثبت شد','اطلاعات و سمت جدید نیازمند پیگیری است.','chart');break;

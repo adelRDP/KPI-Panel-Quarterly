@@ -1418,6 +1418,11 @@ select option,select optgroup { background: var(--color-select-option); color: v
 @media(max-width:580px) { .quarter-charts > .panel { padding:16px; } }
 
 
+.exam-import-actions { display:flex; gap:6px; white-space:nowrap; }
+.exam-import-detail-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr)); gap:12px; margin:0 0 16px; }
+.exam-import-detail-meta dt { color:var(--color-text-secondary); }
+.exam-import-detail-meta dd { margin:4px 0 0; overflow-wrap:anywhere; }
+
 /* Published rules: compact log rows with a separate read-only detail dialog. */
 .score-history-row { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0; }
 .score-history-row:last-child { border-bottom:0; }
