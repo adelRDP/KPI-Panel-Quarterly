@@ -284,11 +284,11 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     return entry;
   }
   const navigationGroups={
-    appealRequests:makeNavigationGroup('appeal-requests','درخواست‌های اعتراض','i-appeal',['appeals','case-review'],'all'),
+    appealRequests:makeNavigationGroup('appeal-requests','درخواست‌های اعتراض','i-appeal',['appeals','case-review'],['personnel','manager']),
     managerRequests:makeNavigationGroup('manager-requests','درخواست‌های پرسنلی','i-inbox',['position-review','personnel-requests-archive'],'manager'),
     panelSettings:makeNavigationGroup('panel-settings','تنظیمات پنل','i-settings',['evaluation-settings','score-settings']),
     personnel:makeNavigationGroup('personnel','دیتای پرسنلی','i-users',['updates','chart','organization','duties']),
-    requests:makeNavigationGroup('requests','درخواست‌ها','i-pulse',['incoming','incoming-archive']),
+    requests:makeNavigationGroup('requests','درخواست‌ها','i-pulse',['incoming','case-review','incoming-archive']),
     ai:makeNavigationGroup('ai','AI','i-target',['ai','ai-archive']),
     kpi:makeNavigationGroup('kpi','شاخص‌های KPI','i-target',['assignments','projectAssignments'],'personnel'),
     managerKpi:makeNavigationGroup('manager-kpi','KPI پرسنل','i-chart-bars',['quarters','team'],'manager'),
@@ -347,15 +347,15 @@ const onboarding=document.createElement('section');onboarding.className='panel s
       ?['dashboard','chart','quarters','group:kpi','surveys','group:appealRequests','chat','notes']
       :role==='manager'
         ?['manager-dashboard','group:managerKpi','group:managerPersonnel','group:managerSurveys','tasks','group:managerRequests','group:appealRequests','chat','notes']
-        :['quarters','group:panelSettings','group:personnel','data','surveys','announcements','group:requests','group:appealRequests','group:ai','chat','notes'];
+        :['quarters','group:panelSettings','group:personnel','data','surveys','announcements','group:requests','group:ai','chat','notes'];
     const navContainer=document.querySelector('.main-nav');
     for(const view of new Set(Object.values(navigationGroups).flatMap(group=>group.views)))navContainer.append($(`[data-view="${view}"]`));
     for(const {group,submenu,views,allowedRole,setOpen} of Object.values(navigationGroups)){
-      const allowed=allowedRole==='all'?['personnel','manager','hr'].includes(role):role===allowedRole;
+      const allowed=Array.isArray(allowedRole)?allowedRole.includes(role):role===allowedRole;
       group.hidden=!allowed;if(group.hidden)setOpen(false);
       if(allowed||allowedRole==='personnel')for(const view of views)submenu.append($(`[data-view="${view}"]`));
     }
-    for(const view of navigationOrder)(window.PanelUtilities?.navHost(view)||navContainer).append(view.startsWith('group:')?navigationGroups[view.slice(6)].group:$(`[data-view="${view}"]`));
+    for(const view of [...navigationOrder,'account-security'])(window.PanelUtilities?.navHost(view)||navContainer).append(view.startsWith('group:')?navigationGroups[view.slice(6)].group:$(`[data-view="${view}"]`));
     syncNavigationGroups(roleChanged);
     const baseRoles={dashboard:['personnel'],assignments:['personnel'],projectAssignments:['personnel'],team:['manager'],surveys:['manager','personnel','hr'],reviews:[],proposals:[],documents:[],users:[],activity:[],settings:[]};
     for(const [view,allowed] of Object.entries(baseRoles)){const nav=$(`[data-view="${view}"]`);if(nav)nav.hidden=!allowed.includes(role);}

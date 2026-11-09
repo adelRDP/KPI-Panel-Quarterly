@@ -1289,7 +1289,7 @@ test('personnel KPI group respects role scope, collapsed sidebar, mobile navigat
 test('admin sidebar groups reuse existing pages and expand without navigating',async t=>{
   const {window,doc,errors,account}=await browser(t);await account('hr-demo');
   const personnel=doc.querySelector('[data-nav-group="personnel"]'),requests=doc.querySelector('[data-nav-group="requests"]'),ai=doc.querySelector('[data-nav-group="ai"]');
-  for(const [group,title,views] of [[doc.querySelector('[data-nav-group="panel-settings"]'),'تنظیمات پنل',['evaluation-settings','score-settings']],[personnel,'دیتای پرسنلی',['updates','chart','organization','duties']],[requests,'درخواست‌ها',['incoming','incoming-archive']],[ai,'AI',['ai','ai-archive']]]){
+  for(const [group,title,views] of [[doc.querySelector('[data-nav-group="panel-settings"]'),'تنظیمات پنل',['evaluation-settings','score-settings']],[personnel,'دیتای پرسنلی',['updates','chart','organization','duties']],[requests,'درخواست‌ها',['incoming','case-review','incoming-archive']],[ai,'AI',['ai','ai-archive']]]){
     assert.equal(group.hidden,false);const toggle=group.querySelector('button'),submenu=group.querySelector('.nav-submenu');
     assert.equal(toggle.type,'button');assert.equal(toggle.getAttribute('aria-label'),title);assert.equal(toggle.getAttribute('aria-controls'),submenu.id);
     assert.deepEqual([...submenu.querySelectorAll('[data-view]')].map(nav=>nav.dataset.view),views);
@@ -1310,14 +1310,15 @@ test('sidebar groups preserve role access, compact rail and mobile navigation',a
   personnel.querySelector('[data-view="updates"]').click();assert.equal(doc.querySelector('.view.active').id,'view-updates');assert.equal(sidebar.classList.contains('open'),false);
   for(const id of ['manager-ops','employee-mohammad']){
     await account(id);assert.equal(personnel.hidden,true);assert.equal(requests.hidden,true);
+    assert.equal(doc.querySelector('[data-view="case-review"]').parentElement,doc.querySelector('#nav-submenu-appeal-requests'));
     const manager=window.PanelWorkflow.user.role==='manager';
-    for(const view of manager?['chart','position-review','personnel-requests-archive']:['chart','appeals']){const nav=doc.querySelector(`.main-nav [data-view="${view}"]`);assert.equal(nav.parentElement,manager?doc.querySelector(view==='chart'?'#nav-submenu-manager-personnel':'#nav-submenu-manager-requests'):doc.querySelector('.main-nav'));assert.equal(nav.hidden,false);nav.click();assert.equal(doc.querySelector('.view.active').id,'view-'+view);}
+    for(const view of manager?['chart','position-review','personnel-requests-archive']:['chart','appeals']){const nav=doc.querySelector(`.main-nav [data-view="${view}"]`);assert.equal(nav.parentElement,manager?doc.querySelector(view==='chart'?'#nav-submenu-manager-personnel':'#nav-submenu-manager-requests'):doc.querySelector(view==='appeals'?'#nav-submenu-appeal-requests':'.main-nav'));assert.equal(nav.hidden,false);nav.click();assert.equal(doc.querySelector('.view.active').id,'view-'+view);}
     if(manager){assert.equal(doc.querySelector('.main-nav [data-view="appeals"]').hidden,true);assert.equal(window.PanelWorkflow.canView('appeals'),false);}
     for(const view of ['updates','organization','incoming','incoming-archive','duties','ai','ai-archive','evaluation-settings','score-settings'])assert.equal(window.PanelWorkflow.canView(view),false);
     assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').hidden,true);
     assert.equal(doc.querySelector('[data-nav-group="ai"]').hidden,true);
   }
-  await account('hr-demo');assert.equal([...doc.querySelectorAll('.nav-group')].filter(group=>!group.hidden).length,4);assert.equal(personnel.querySelectorAll('[data-view]').length,4);assert.equal(requests.querySelectorAll('[data-view]').length,2);assert.equal(doc.querySelector('[data-nav-group="ai"]').querySelectorAll('[data-view]').length,2);assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').querySelectorAll('[data-view]').length,2);
+  await account('hr-demo');assert.equal([...doc.querySelectorAll('.nav-group')].filter(group=>!group.hidden).length,4);assert.equal(personnel.querySelectorAll('[data-view]').length,4);assert.equal(requests.querySelectorAll('[data-view]').length,3);assert.equal(doc.querySelector('[data-nav-group="ai"]').querySelectorAll('[data-view]').length,2);assert.equal(doc.querySelector('[data-nav-group="panel-settings"]').querySelectorAll('[data-view]').length,2);
   await window.PanelLifecycle.refresh();await delay(120);assert.deepEqual(errors,[]);
 });
 

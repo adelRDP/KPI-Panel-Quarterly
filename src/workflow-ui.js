@@ -90,6 +90,45 @@
   }
   const dashboardView=$('#view-dashboard'),dashboardHeading=dashboardView.querySelector('.page-heading'),levelSwitch=document.createElement('div'),quarterOverview=document.createElement('section'),monthlyDetail=document.createElement('div');
   const operationsOverview=document.createElement('section');operationsOverview.id='operationsOverview';operationsOverview.hidden=true;
+  const operationsGuideButton=dashboardHeading.querySelector('[data-operations-guide]');
+  const operationsGuide=document.createElement('dialog');
+  operationsGuide.id='operationsGuideDialog';
+  operationsGuide.className='design-analysis-dialog operations-guide-dialog';
+  operationsGuide.setAttribute('aria-labelledby','operationsGuideTitle');
+  operationsGuide.innerHTML=`
+    <header class="design-analysis-dialog-header">
+      <h2 id="operationsGuideTitle">راهنمای پیشخوان پرسنل</h2>
+      <button type="button" class="secondary-button" aria-label="بستن راهنما" autofocus>×</button>
+    </header>
+    <div class="design-analysis-dialog-body">
+      <h3>وضعیت گزارش‌ها</h3>
+      <dl>
+        <dt>فاقد گزارش</dt><dd>برای شاخص مستند فعالی ثبت نشده است. ممکن است کار انجام شده باشد. برای فرستادن مستند، «ثبت گزارش» را بزنید.</dd>
+        <dt>منتظر بررسی</dt><dd>مستند ثبت شده و امتیاز ارزیابی هنوز ثبت نشده است.</dd>
+        <dt>بررسی‌شده</dt><dd>ارزیابی شاخص ثبت شده است. ثبت ارزیابی به‌تنهایی به معنی تأیید کیفیت صددرصدی نیست. نتیجه و امتیاز را در «جزئیات» ببینید.</dd>
+        <dt>وضعیت نامشخص</dt><dd>وضعیت گزارش هنوز خوانده نشده است یا دریافت آن موفق نبوده است. این موارد در شمارنده‌های «فاقد گزارش» و «معوق» حساب نمی‌شوند.</dd>
+      </dl>
+      <h3>موعد و تأخیر</h3>
+      <p>«معوق» یعنی موعد گذشته و شاخص فاقد گزارش است. «سررسید امروز» شاخص‌های فاقد گزارشی را نشان می‌دهد که موعدشان امروز است و هنوز نگذشته است.</p>
+      <p>برای روتین‌های تکرارشونده، نوبت‌ها جداگانه ثبت نمی‌شوند. تأخیر اینجا برآوردی از آخرین موعد برنامه است و در امتیاز یا حقوق اعمال نمی‌شود.</p>
+    </div>`;
+  document.body.append(operationsGuide);
+  operationsGuideButton.onclick=()=>{
+    if(!operationsGuide.open)operationsGuide.showModal();
+  };
+  operationsGuide.querySelector('button').onclick=()=>operationsGuide.close();
+  operationsGuide.addEventListener('close',()=>{
+    if(dashboardView.classList.contains('active')&&!operationsGuideButton.hidden){
+      operationsGuideButton.focus({preventScroll:true});
+    }
+  });
+  window.addEventListener('panel:view',event=>{
+    if(event.detail!=='dashboard'&&operationsGuide.open)operationsGuide.close();
+  });
+  window.addEventListener('panel:session',()=>{
+    if(operationsGuide.open)operationsGuide.close();
+  });
+
   let pendingManagerDashboardFocus=null;
   function scrollDashboardTarget(selector){
     const target=document.querySelector(selector),view=document.querySelector('.view.active');if(!target||!view?.contains(target)||target.closest('[hidden]'))return;
@@ -135,7 +174,7 @@
   window.addEventListener('panel:view',event=>{if(event.detail!=='manager-dashboard')pendingManagerDashboardFocus=null;});
   levelSwitch.className='dashboard-level-switch';levelSwitch.setAttribute('aria-label','نوع نمایش پیشخوان');levelSwitch.innerHTML=[['showOperations','داشبورد پرسنل','i-home'],['showQuarter','خلاصه عملکرد فصل','i-chart-bars'],['showMonth','جزئیات عملکرد فصل','i-report']].map(([id,title,iconId])=>`<button type="button" class="secondary-button" id="${id}"><svg aria-hidden="true"><use href="#${iconId}"/></svg><span>${title}</span></button>`).join('');quarterOverview.id='quarterOverview';monthlyDetail.id='monthlyDetail';
   while(dashboardHeading.nextElementSibling)monthlyDetail.append(dashboardHeading.nextElementSibling);dashboardView.prepend(levelSwitch);dashboardHeading.after(operationsOverview,quarterOverview,monthlyDetail);$('#todayLabel').hidden=true;
-  function setDashboardLevel(level){dashboardLevel=level;const personnel=session?.user.role==='personnel',quarterly=personnel&&level==='quarter',operations=personnel&&level==='operations';levelSwitch.hidden=!personnel;dashboardHeading.querySelector('h1').hidden=personnel&&!snapshot?.notApplicable;quarterOverview.hidden=!quarterly;operationsOverview.hidden=!operations;monthlyDetail.hidden=quarterly||operations;for(const [id,on] of [['showOperations',operations],['showQuarter',quarterly],['showMonth',!quarterly&&!operations]]){$('#'+id).classList.toggle('is-active',on);$('#'+id).setAttribute('aria-pressed',String(on));}updatePeriodLabel();}
+  function setDashboardLevel(level){dashboardLevel=level;const personnel=session?.user.role==='personnel',quarterly=personnel&&level==='quarter',operations=personnel&&level==='operations';levelSwitch.hidden=!personnel;dashboardHeading.querySelector('h1').hidden=personnel&&!snapshot?.notApplicable;quarterOverview.hidden=!quarterly;operationsOverview.hidden=!operations;operationsGuideButton.hidden=!(operations&&snapshot&&!snapshot.notApplicable);monthlyDetail.hidden=quarterly||operations;for(const [id,on] of [['showOperations',operations],['showQuarter',quarterly],['showMonth',!quarterly&&!operations]]){$('#'+id).classList.toggle('is-active',on);$('#'+id).setAttribute('aria-pressed',String(on));}updatePeriodLabel();}
   $('#showOperations').onclick=()=>{setDashboardLevel('operations');renderDashboard();loadOperations();};
   $('#showQuarter').onclick=()=>{setDashboardLevel('quarter');renderDashboard();};$('#showMonth').onclick=()=>{setDashboardLevel('month');renderDashboard();};
   let operationsVersion=0,operationsReports=new Map(),operationsLoading=false,operationsFilter='all',operationsReportsKey='';
@@ -193,8 +232,7 @@
       <div class="operations-layout"><section class="panel settings-card"><h3>وضعیت ثبت گزارش‌ها</h3><div class="operations-distribution" role="img" aria-label="${escape(counts.map(c=>stateNames[c.state]+': '+c.count).join('، '))}">${counts.filter(c=>c.count).map(c=>`<span data-state="${c.state}" style="flex-grow:${c.count}" title="${escape(stateNames[c.state])}: ${fa.format(c.count)}"></span>`).join('')}</div><div class="operations-legend">${counts.map(c=>`<span data-state="${c.state}">${stateNames[c.state]} <b>${fa.format(c.count)}</b></span>`).join('')}</div>${!model.rows.length?'<p class="workflow-muted">شاخص منتشرشده‌ای برای این فصل وجود ندارد.</p>':''}</section>
       <section class="panel settings-card"><h3>نظرسنجی‌های در انتظار پاسخ</h3>${model.pendingSurveys.length?model.pendingSurveys.map(c=>`<div class="operations-survey"><span><strong>${escape(c.employeeName||c.unitName||'نظرسنجی همکاران')}</strong><small>مهلت: ${escape(window.PanelDate.format(c.dueAt))}</small></span><button type="button" class="secondary-button" data-operation-survey="${escape(c.id)}">پاسخ‌دادن</button></div>`).join(''):'<p class="workflow-muted">نظرسنجی قابل پاسخی برای شما در این فصل باقی نمانده است.</p>'}</section></div>
       <section class="panel settings-card operations-tasks"><div class="panel-heading"><h3>کارها و تأخیرها</h3><div class="operations-filters">${[['all','همه'],['overdue','معوق'],['today','سررسید امروز'],['missing','فاقد گزارش']].map(([id,title])=>`<button type="button" class="secondary-button${operationsFilter===id?' is-active':''}" data-operation-filter="${id}" aria-pressed="${operationsFilter===id}">${title}</button>`).join('')}</div></div><div class="workflow-table-wrap"><table class="workflow-table"><thead><tr><th>شاخص</th><th>موعد / آخرین نوبت برنامه</th><th>وضعیت</th><th>تأخیر</th><th>اقدام</th></tr></thead><tbody>${selected.map(r=>`<tr><td><strong>${escape(r.task.title)}</strong><small>${r.task.kind==='project'?'پروژه‌ای':'روتین'}${r.task.frequency?' · '+escape(r.task.frequency):''}</small></td><td>${escape(dueLabel(r))}${r.upcoming?'<small>هفت روز آینده</small>':''}</td><td><span class="operations-state" data-state="${r.overdue?'overdue':r.state}">${r.overdue?'معوق · فاقد گزارش':stateNames[r.state]}</span></td><td>${escape(delayLabel(r))||'—'}</td><td>${openButton(r)}</td></tr>`).join('')||'<tr><td colspan="5">موردی در این فیلتر وجود ندارد.</td></tr>'}</tbody></table></div></section>
-      <section class="panel settings-card operations-timeline"><h3>تایم‌لاین شاخص‌های پروژه‌ای</h3><p class="workflow-muted">نقاط تحویل، موعدهای برنامه هستند؛ عبور از تاریخ به‌تنهایی به معنی انجام یا رد مرحله نیست.</p>${model.rows.filter(r=>r.task.kind==='project').map(r=>{const checkpoints=[...(r.task.milestones||[]).map(m=>({name:m.name,date:m.dueDate})),...(r.task.dueDate?[{name:'تحویل نهایی',date:r.task.dueDate}]:[])].sort((a,b)=>String(a.date).localeCompare(String(b.date)));return `<article class="operations-project"><div class="panel-heading"><h4>${escape(r.task.title)}</h4>${openButton(r)}</div><ol>${checkpoints.map(m=>`<li data-past="${m.date<isoDay(new Date())}"><strong>${escape(m.name)}</strong><time datetime="${escape(m.date)}">${escape(window.PanelDate.format(m.date))}</time><small>${m.date<isoDay(new Date())?'موعد گذشته':m.date===isoDay(new Date())?'امروز':'پیش رو'}</small></li>`).join('')||'<li>نقطهٔ تحویل یا موعد ثبت نشده است.</li>'}</ol></article>`;}).join('')||'<p class="workflow-muted">شاخص پروژه‌ای منتشرشده برای این فصل وجود ندارد.</p>'}</section>
-      <p class="lifecycle-note">«فاقد گزارش» به معنی نبود مستند فعال است، نه اثبات انجام‌نشدن کار. «بررسی‌شده» به معنی ثبت ارزیابی معتبر است، نه تأیید کیفیت صددرصدی. برای روتین‌های تکرارشونده، ثبت نوبت‌به‌نوبت موجود نیست؛ تأخیر فقط برآورد آخرین موعد برنامه در ماه انتخاب‌شده است و در امتیاز یا حقوق اعمال نمی‌شود.</p>`;
+      <section class="panel settings-card operations-timeline"><h3>تایم‌لاین شاخص‌های پروژه‌ای</h3><p class="workflow-muted">نقاط تحویل، موعدهای برنامه هستند؛ عبور از تاریخ به‌تنهایی به معنی انجام یا رد مرحله نیست.</p>${model.rows.filter(r=>r.task.kind==='project').map(r=>{const checkpoints=[...(r.task.milestones||[]).map(m=>({name:m.name,date:m.dueDate})),...(r.task.dueDate?[{name:'تحویل نهایی',date:r.task.dueDate}]:[])].sort((a,b)=>String(a.date).localeCompare(String(b.date)));return `<article class="operations-project"><div class="panel-heading"><h4>${escape(r.task.title)}</h4>${openButton(r)}</div><ol>${checkpoints.map(m=>`<li data-past="${m.date<isoDay(new Date())}"><strong>${escape(m.name)}</strong><time datetime="${escape(m.date)}">${escape(window.PanelDate.format(m.date))}</time><small>${m.date<isoDay(new Date())?'موعد گذشته':m.date===isoDay(new Date())?'امروز':'پیش رو'}</small></li>`).join('')||'<li>نقطهٔ تحویل یا موعد ثبت نشده است.</li>'}</ol></article>`;}).join('')||'<p class="workflow-muted">شاخص پروژه‌ای منتشرشده برای این فصل وجود ندارد.</p>'}</section>`;
   }
   async function loadOperations(){
     if(session?.user.role!=='personnel'||!snapshot||snapshot.notApplicable)return;
@@ -289,7 +327,7 @@
     $('#view-dashboard').hidden=false;
     managerDetailPresentation(session.user.role==='manager');
     kpiExclusionNotice.hidden=!snapshot.notApplicable;
-    if(snapshot.notApplicable){dashboardHeading.querySelector('h1').hidden=false;for(const child of $('#view-dashboard').children)if(child!==kpiExclusionNotice&&!child.classList.contains('page-heading')){if(!excludedDashboardHidden.has(child))excludedDashboardHidden.set(child,child.hidden);child.hidden=true;}$('#view-dashboard .page-heading h1').textContent='پیشخوان '+snapshot.employee.name;$('#kpiList').replaceChildren();for(const id of ['overallPerformance','kpiPotential','kpiEarned','payMaxKpi','payEarnedKpi','finalSalary','payFinal'])if($('#'+id))$('#'+id).textContent='—';renderAssignments(snapshot);return;}
+    if(snapshot.notApplicable){operationsGuideButton.hidden=true;dashboardHeading.querySelector('h1').hidden=false;for(const child of $('#view-dashboard').children)if(child!==kpiExclusionNotice&&!child.classList.contains('page-heading')){if(!excludedDashboardHidden.has(child))excludedDashboardHidden.set(child,child.hidden);child.hidden=true;}$('#view-dashboard .page-heading h1').textContent='پیشخوان '+snapshot.employee.name;$('#kpiList').replaceChildren();for(const id of ['overallPerformance','kpiPotential','kpiEarned','payMaxKpi','payEarnedKpi','finalSalary','payFinal'])if($('#'+id))$('#'+id).textContent='—';renderAssignments(snapshot);return;}
     for(const [child,hidden] of excludedDashboardHidden)child.hidden=hidden;excludedDashboardHidden.clear();
     const data=snapshot,active=data.components.filter(c=>c.applicable);
     setDashboardLevel(session.user.role==='personnel'?dashboardLevel:'month');renderQuarterOverview();if(dashboardLevel==='operations')renderOperations();

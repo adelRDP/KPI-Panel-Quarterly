@@ -1053,6 +1053,13 @@ select option,select optgroup { background: var(--color-select-option); color: v
 @media (max-width: 580px) { .dashboard-level-switch { gap: 8px; }.dashboard-level-switch > .secondary-button { flex: 1; min-width: 0; padding: 12px 8px; font-size: 14px; } }
 .operations-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .operations-heading h2 { margin: 0; font-size: 20px; }.operations-heading p { margin: 4px 0 0; }
+.dashboard-heading-actions { display:flex; align-items:center; align-self:center; gap:8px; flex:none; }
+.dashboard-heading-actions .secondary-button { width:auto; min-height:36px; padding:6px 12px; font-size:var(--text-xs); }
+.design-analysis-dialog.operations-guide-dialog { width:min(620px,calc(100vw - 24px)); grid-template-rows:auto minmax(0,1fr); }
+.operations-guide-dialog h3 { margin:0 0 10px; font-size:var(--text-sm); }
+.operations-guide-dialog dl { margin:0 0 18px; }
+.operations-guide-dialog dt { font-weight:700; }
+.operations-guide-dialog dd,.operations-guide-dialog p { margin:3px 0 10px; color:var(--color-text-secondary); line-height:1.85; }
 .operations-cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
 .operations-card { padding: 18px; text-align: right; display: grid; gap: 12px; color: var(--color-text); border: 1px solid var(--color-border); }
 .operations-card > span { display: flex; align-items: center; gap: 10px; font-size: 13px; }.operations-card svg { flex: none; }
