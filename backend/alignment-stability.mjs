@@ -36,15 +36,16 @@ export function revisionChain(store,design){
 }
 export function priorContext(store,design,tasks,contextHash,provider,model,isCurrentRun){
   const chain=revisionChain(store,design),locks=[],history=[];
+  const findRun=id=>id?store.get(id,'ai-role-run'):null;
   for(const task of tasks){
     // Only inspect the uninterrupted history of this exact task under the same job/model/policy.
     for(const previous of chain){
-      const run=store.get(previous.aiReview?.runId,'ai-role-run'),oldTask=run?.inputs?.stagePayload?.proposals?.find(row=>row.id===task.id);
+      const run=findRun(previous.aiReview?.runId),oldTask=run?.inputs?.stagePayload?.proposals?.find(row=>row.id===task.id);
       if(!run||!isCurrentRun(run)||run.provider!==provider||run.model!==model||run.inputs.stagePayload.stabilityContextHash!==contextHash||!oldTask)break;
       if(stabilityHash(oldTask)!==stabilityHash(task)){
         // An explicitly accepted patch can inherit the independently verified retain result,
         // but only when the complete tested plan and its context are exactly unchanged.
-        const original=previous.aiReview.result.reviews.find(row=>row.proposalId===task.id),quality=store.get(original?.correctionValidation?.runId,'ai-role-run');
+        const original=previous.aiReview.result.reviews.find(row=>row.proposalId===task.id),quality=findRun(original?.correctionValidation?.runId);
         const accepted=(design.acceptedSuggestions||[]).some(row=>row.analysisRunId===run.id&&row.proposalId===task.id);
         const verified=accepted&&original?.correctionValidation?.status==='verified'&&isCurrentRun(quality)&&quality.stage==='kpi-correction-validation-v1'&&quality.provider===provider&&quality.model===model&&quality.inputs.stagePayload.stabilityContextHash===contextHash&&stabilityHash(quality.inputs.stagePayload.proposals)===stabilityHash(tasks)&&original.correctionValidation.testedPlanHash===stabilityHash(tasks);
         const review=verified&&quality.result.reviews.find(row=>row.proposalId===task.id);
@@ -56,11 +57,11 @@ export function priorContext(store,design,tasks,contextHash,provider,model,isCur
     }
   }
   for(const previous of chain.slice(0,3)){
-    const run=store.get(previous.aiReview?.runId,'ai-role-run');if(!run||run.status!=='succeeded'||run.validationStatus!=='valid')continue;
+    const run=findRun(previous.aiReview?.runId);if(!run||run.status!=='succeeded'||run.validationStatus!=='valid')continue;
     history.push({designVersion:previous.version,runId:run.id,changes:(previous.acceptedSuggestions||[]).map(({proposalId,field,oldValue,proposedValue,reason})=>({proposalId,field,oldValue,proposedValue,reason})),reviews:(previous.aiReview.result.reviews||[]).map(row=>({proposalId:row.proposalId,recommendation:row.recommendation,checks:row.checks.filter(check=>check.status!=='pass').map(({type,ruleId,severity,reason,status})=>({type,ruleId,severity,reason,status})),changes:row.changes.map(({field,proposedValue,reason})=>({field,proposedValue,reason})),missingInformation:row.missingInformation}))});
   }
   const corrections=(design.acceptedSuggestions||[]).map(({proposalId,field,oldValue,proposedValue,reason})=>({proposalId,field,oldValue,proposedValue,reason}));
-  const rounds=chain.filter(row=>{const run=store.get(row.aiReview?.runId,'ai-role-run');return row.aiReview?.result?.blockers?.length&&run?.status==='succeeded'&&run.validationStatus==='valid'&&run.provider===provider&&run.model===model&&run.inputs?.stagePayload?.stabilityContextHash===contextHash;}).length;
+  const rounds=chain.filter(row=>{const run=findRun(row.aiReview?.runId);return row.aiReview?.result?.blockers?.length&&run?.status==='succeeded'&&run.validationStatus==='valid'&&run.provider===provider&&run.model===model&&run.inputs?.stagePayload?.stabilityContextHash===contextHash;}).length;
   return {locks,history,corrections,rounds};
 }
 export function normalizeStaticJudgments(result){
