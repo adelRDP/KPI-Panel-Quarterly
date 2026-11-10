@@ -5,9 +5,9 @@ import {tmpdir} from 'node:os';
 import {sha256} from './evaluation.mjs';
 import {preprocessVisuals,preprocessConfig,visualSchema,validateVisualPages,PREPROCESS_VERSION} from './preprocess-harness.mjs';
 import {requireWorkEvidence} from './evidence-privacy.mjs';
-function extractLocal(path,extension,documentId) {
+function extractLocal(path,extension,documentId,workbookEvidenceVersion) {
   return new Promise(resolve=>{
-    const worker=new Worker(new URL('./extraction-worker.mjs',import.meta.url),{workerData:{path,extension,documentId},resourceLimits:{maxOldGenerationSizeMb:256}});
+    const worker=new Worker(new URL('./extraction-worker.mjs',import.meta.url),{workerData:{path,extension,documentId,workbookEvidenceVersion},resourceLimits:{maxOldGenerationSizeMb:256}});
     let finished=false;
     const finish=result=>{if(finished)return;finished=true;clearTimeout(timer);worker.terminate();resolve(result);};
     const failed={status:'failed',chunks:[],warnings:['استخراج متوقف شد؛ فایل از محدودیت زمان یا حافظه عبور کرد.']};
@@ -15,8 +15,8 @@ function extractLocal(path,extension,documentId) {
     worker.on('message',finish);worker.on('error',()=>finish(failed));worker.on('exit',()=>finish(failed));
   });
 }
-export async function extractDocument(path,extension,documentId,{provider='codex',convert,sourceHash,onStage,visualConsent=false}={}) {
-  const {visuals=[],...result}=await extractLocal(path,extension,documentId);
+export async function extractDocument(path,extension,documentId,{provider='codex',convert,sourceHash,onStage,visualConsent=false,workbookEvidenceVersion}={}) {
+  const {visuals=[],...result}=await extractLocal(path,extension,documentId,workbookEvidenceVersion);
   if(!visuals.length)return result;
   if(!convert&&preprocessConfigSafe().enabled&&visualConsent!==true){result.status='needs_conversion';result.warnings.push('خوانش تصویری بیرون از دستگاه به اجازهٔ صریح همین ارسال در بخش راهنما نیاز دارد.');result.conversion={status:'blocked',reason:'visual-consent-required'};return result;}
   const dir=await mkdtemp(join(tmpdir(),'kpi-vision-'));

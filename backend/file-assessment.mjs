@@ -3,7 +3,7 @@ import {resolve,sep,extname} from 'node:path';
 import {extractDocument} from './extract.mjs';
 import {sha256,buildPrompt,finalizeReview,resultSchema,POLICY_VERSION,ReviewValidationError} from './evaluation.mjs';
 import {requireWorkEvidence} from './evidence-privacy.mjs';
-import {MAX_FULL_FILE_EVIDENCE_BYTES,MAX_FULL_FILE_PARTS} from './evidence-limits.mjs';
+import {MAX_FULL_FILE_EVIDENCE_BYTES,MAX_FULL_FILE_PARTS,WORKBOOK_EVIDENCE_VERSION} from './evidence-limits.mjs';
 import {citationRepairExamples} from './citation-repair.mjs';
 import {buildFileSynthesis,FILE_SYNTHESIS_VERSION,SYNTHESIS_PROMPT_BYTES} from './file-synthesis.mjs';
 export {FILE_SYNTHESIS_VERSION} from './file-synthesis.mjs';
@@ -26,14 +26,15 @@ export async function assertRawFiles(documents,uploadRoot){
     if(sha256(await readFile(path))!==doc.sha256)throw Object.assign(Error('فایل اصلی تغییر کرده است؛ نتیجهٔ تازه ثبت نمی‌شود.'),{status:409});
   }
 }
-export async function loadFullFileEvidence(documents,uploadRoot){
+export async function loadFullFileEvidence(documents,uploadRoot,{previousEvidence}={}){
   await assertRawFiles(documents,uploadRoot);
   const chunks=[],metadata=[];let incomplete=false,bytes=0;
   for(const doc of documents){
     let extraction=doc.extraction;const extension=extname(doc.name||'').slice(1).toLowerCase();
-    if(workbookExtensions.has(extension)&&extraction?.workbook?.version!=='workbook-cells-v2'||extraction?.warnings?.includes('متن استخراج‌شده به ۲۰۰ هزار نویسه محدود شد.')){
+    const workbookEvidenceVersion=previousEvidence?.documents?.find(entry=>entry.id===doc.id)?.workbook?.version||WORKBOOK_EVIDENCE_VERSION;
+    if((workbookExtensions.has(extension)&&extraction?.workbook?.version!==workbookEvidenceVersion)||extraction?.warnings?.includes('متن استخراج‌شده به ۲۰۰ هزار نویسه محدود شد.')){
       if(!doc.path)throw Object.assign(Error('بازخوانی فایل اصلی لازم است؛ متن یا خلاصهٔ ناقص قدیمی برای ارزیابی کافی نیست.'),{status:409});
-      extraction=await extractDocument(doc.path,extension,doc.id);
+      extraction=await extractDocument(doc.path,extension,doc.id,{workbookEvidenceVersion});
     }
     if(extraction?.workbook?.restrictedFields)throw Object.assign(Error('ارسال کامل فایل متوقف شد: ستون حساس تماس، حقوق یا رمز شناسایی شد. نسخهٔ کاریِ مجاز را بارگذاری کنید.'),{status:422});
     if(!extraction?.chunks?.length)throw Object.assign(Error('فایل خوانده نشد؛ استخراج/خوانش کامل آن باید تکمیل شود.'),{status:400});

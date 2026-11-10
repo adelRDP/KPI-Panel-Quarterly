@@ -192,21 +192,48 @@
     section.onclick=async e=>{const b=e.target.closest('[data-human-document]');if(!b||working)return;const d=row.documents.find(d=>d.id===b.dataset.humanDocument);if(!d)return;b.disabled=true;try{await window.PanelWorkflow.download(`/api/activities/${data.activity.id}/human-review/documents/${d.id}`,d.name);}catch(error){section.querySelector('#activityHumanMessage').textContent=error.message;}finally{b.disabled=false;}};
   }
   let humanInboxVersion=0;
+  const managerInbox=document.querySelector('#view-position-review [data-human-inbox]');
+  const managerSearch=document.querySelector('#managerRequestsSearch');
+  function filterManagerHumanInbox(){
+    const empty=managerInbox?.querySelector('[data-human-inbox-empty]');
+    if(!empty)return;
+    const normalize=text=>text.normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').toLowerCase();
+    const tokens=normalize(managerSearch?.value||'').trim().split(/\s+/).filter(Boolean);
+    let visible=0;
+    for(const row of managerInbox.querySelectorAll('[data-human-inbox-row]')){
+      const text=normalize(Array.from(row.cells).slice(0,-1).map(cell=>cell.textContent).join(' '));
+      row.hidden=!tokens.every(token=>text.includes(token));
+      if(!row.hidden)visible++;
+    }
+    empty.hidden=visible>0;
+  }
+  managerSearch?.addEventListener('input',filterManagerHumanInbox);
+  function renderHumanInbox(rows,headingId){
+    return `<div class="workflow-table-wrap"><table class="workflow-table" aria-labelledby="${escape(headingId)}"><thead><tr>
+      <th scope="col">پرسنل</th><th scope="col">خلاصهٔ درخواست</th><th scope="col">دوره</th><th scope="col">وضعیت</th><th scope="col">اقدام</th>
+    </tr></thead><tbody>${rows.map(row=>`<tr data-human-inbox-row><td><strong>${escape(row.employeeName)}</strong></td><td>${escape(row.title)}</td><td>${escape(window.PanelWorkflow.monthLabel(row.period))}</td><td>${escape(humanStates[row.status])}</td><td><button type="button" class="secondary-button" data-human-open="${escape(row.activityId)}">بررسی و جزئیات</button></td></tr>`).join('')}
+    <tr data-human-inbox-empty${rows.length?' hidden':''}><td colspan="5" class="workflow-muted">${rows.length?'درخواستی با این جست‌وجو پیدا نشد.':'درخواستی برای تأیید نهایی گزارش ثبت نشده است.'}</td></tr></tbody></table></div>`;
+  }
   async function refreshHumanInbox(){
     const version=++humanInboxVersion,actor=window.PanelWorkflow?.user;
     document.querySelectorAll('[data-human-inbox]').forEach(p=>p.hidden=true);
     if(!['manager','hr'].includes(actor?.role))return;
-    const parent=document.querySelector(actor.role==='hr'?'#view-incoming':'#view-position-review');if(!parent)return;
-    let panel=parent.querySelector('[data-human-inbox]');if(!panel){panel=document.createElement('section');panel.className='panel settings-card';panel.dataset.humanInbox='';parent.querySelector('.page-heading').after(panel);}
-    panel.hidden=false;panel.innerHTML='<h2>تأیید نهایی گزارش شاخص‌ها</h2><p role="status">در حال دریافت درخواست‌ها…</p>';
+    const isManager=actor.role==='manager',view=isManager?'position-review':'incoming';
+    const panel=document.querySelector('#view-'+view+' [data-human-inbox]');
+    if(!panel)return;
+    const count=isManager?null:document.querySelector('#hrReportApprovalCount');
+    panel.hidden=false;panel.innerHTML='<p role="status">در حال دریافت درخواست‌ها…</p>';
     try{const rows=await api('/api/activity-human-reviews');if(version!==humanInboxVersion||window.PanelWorkflow.user?.id!==actor.id)return;
       const pending=actor.role==='hr'?'hr_review':'manager_review';rows.sort((a,b)=>Number(b.status===pending)-Number(a.status===pending)||b.updatedAt.localeCompare(a.updatedAt));
-      panel.innerHTML='<h2>تأیید نهایی گزارش شاخص‌ها</h2><p>درخواست‌های پس از پایان سهمیه و سوابق تأیید انسانی؛ همهٔ دوره‌ها.</p>'+ (rows.length?rows.map(r=>`<article class="activity-human-inbox-item"><div><strong>${escape(r.employeeName)} · ${escape(r.title)}</strong><p>${escape(window.PanelWorkflow.monthLabel(r.period))} · ${escape(humanStates[r.status])}</p></div><button type="button" class="secondary-button" data-human-open="${escape(r.activityId)}">بررسی و جزئیات</button></article>`).join(''):'<p>درخواستی ثبت نشده است.</p>');
-      panel.onclick=e=>{const b=e.target.closest('[data-human-open]');if(b)window.PanelAi.open(b.dataset.humanOpen,actor.role==='hr'?'incoming':'position-review',b);};
-    }catch(error){if(version===humanInboxVersion)panel.innerHTML=`<h2>تأیید نهایی گزارش شاخص‌ها</h2><p role="alert">${escape(error.message)}</p><button type="button" class="secondary-button" data-human-retry>تلاش دوباره</button>`;panel.onclick=e=>{if(e.target.closest('[data-human-retry]'))refreshHumanInbox();};}
+      if(count)count.textContent=fa.format(rows.filter(row=>row.status===pending).length);
+      panel.innerHTML='<p class="workflow-muted">درخواست‌های پس از پایان سهمیه و سوابق تأیید انسانی؛ همهٔ دوره‌ها.</p>'+renderHumanInbox(rows,panel.parentElement.getAttribute('aria-labelledby'));
+      if(isManager)filterManagerHumanInbox();
+      panel.onclick=e=>{const b=e.target.closest('[data-human-open]');if(b)window.PanelAi.open(b.dataset.humanOpen,view,b);};
+    }catch(error){if(version!==humanInboxVersion)return;if(count)count.textContent='—';panel.innerHTML=`<p role="alert">${escape(error.message)}</p><button type="button" class="secondary-button" data-human-retry>تلاش دوباره</button>`;panel.onclick=e=>{if(e.target.closest('[data-human-retry]'))refreshHumanInbox();};}
   }
   window.addEventListener('panel:session',()=>{humanDrafts.clear();refreshHumanInbox();});
   window.addEventListener('panel:view',e=>{if(['incoming','position-review'].includes(e.detail))refreshHumanInbox();});
+  document.querySelector('#managerRequestsFilters [data-refresh-lifecycle]')?.addEventListener('click',refreshHumanInbox);
   if(window.PanelWorkflow?.user)refreshHumanInbox();
   function renderQuota(q){if(!q)return '';const help='شامل ارسال اول و اصلاح‌ها؛ چند فایل یک گزارش یک نوبت است. خطای پردازش و cache سهمیه تازه مصرف نمی‌کنند. سقف از تنظیمات امتیاز ادمین اعمال می‌شود.'+(q.blockedReason?' '+q.blockedReason:'');return `<section class="activity-submission-quota" aria-label="سهمیه ارسال گزارش" aria-description="${escape(help)}" title="${escape(help)}" tabindex="0" data-blocked="${q.canUpload===false}"><strong>سهمیه: ${q.limit==null?'نامحدود':fa.format(q.limit)+' نوبت'}</strong><span>مصرف: ${fa.format(q.used)}</span>${q.pending?'<span>در صف: '+fa.format(q.pending)+'</span>':''}<span>باقی: ${q.remaining==null?'نامحدود':fa.format(q.remaining)}</span>${q.blockedReason?'<span class="quota-closed" role="status">'+(q.remaining===0?'سقف تکمیل':'ارسال بسته')+'</span>':''}</section>`;}
   function historyRows(data){return data.history?.length?data.history:data.reviews.map(r=>({id:'review:'+r.id,kind:'analysis',reviewId:r.id,status:r.status==='done'?r.result?.decision:r.status,finalScore:r.result?.finalScore??r.result?.qualityScore??null,createdAt:r.createdAt||r.startedAt||r.finishedAt,files:r.documentHashes||[]}));}

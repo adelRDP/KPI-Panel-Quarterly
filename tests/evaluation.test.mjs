@@ -47,7 +47,7 @@ test('real text, spreadsheet and Office extraction, corruption and size guards',
   const small=await extract(workbook([['Status'],['Complete']]),'xlsx');
   assert.equal(small.status,'ready');assert.ok(small.chunks.some(c=>c.text.includes('Complete')));
   const large=await extract(workbook([['Status'],...Array.from({length:101},()=>['SECRET_ROW'])]),'xlsx');
-  assert.equal(large.status,'ready');assert.ok(large.chunks.some(c=>c.text.includes('SECRET_ROW')));assert.equal(large.workbook.totalCells,102);assert.equal(large.workbook.version,'workbook-cells-v2');
+  assert.equal(large.status,'ready');assert.ok(large.chunks.some(c=>c.text.includes('SECRET_ROW')));assert.equal(large.workbook.totalCells,102);assert.equal(large.workbook.version,'workbook-cells-v3');
   const docx=zipSync({
     '[Content_Types].xml':strToU8('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'),
     '_rels/.rels':strToU8('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'),

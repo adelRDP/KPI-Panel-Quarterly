@@ -26,8 +26,8 @@
   --palette-border: rgba(42, 80, 58, .12);
   --palette-border-subtle: rgba(42, 80, 58, .08);
   --palette-text-primary: #182A21;
-  --palette-text-secondary: #64766B;
-  --palette-text-muted: #66786C;
+  --palette-text-secondary: #4F6256;
+  --palette-text-muted: #526458;
   --palette-on-primary: #FFFFFF;
   --palette-primary: #0A805E;
   --palette-primary-hover: #076D50;
@@ -225,8 +225,8 @@
   --palette-border: rgba(230, 255, 240, .13);
   --palette-border-subtle: rgba(230, 255, 240, .08);
   --palette-text-primary: #F3F8F4;
-  --palette-text-secondary: #B4C3B9;
-  --palette-text-muted: #8A9B90;
+  --palette-text-secondary: #C1CEC6;
+  --palette-text-muted: #A9BAB0;
   --palette-on-primary: #0D271B;
   --palette-primary: #2AD09B;
   --palette-primary-hover: #4BE0B0;

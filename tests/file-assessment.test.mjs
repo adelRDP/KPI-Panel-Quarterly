@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {createRequire} from 'node:module';import {once} from 'node:events';
 import {extractDocument} from '../backend/extract.mjs';import {preprocessWorkbook} from '../backend/workbook-harness.mjs';import {loadFullFileEvidence,assessFullFile,planFileParts} from '../backend/file-assessment.mjs';import {sha256,POLICY_VERSION} from '../backend/evaluation.mjs';import {createPanelServer} from '../server.mjs';import {openStore} from '../backend/store.mjs';
-import {MAX_FULL_FILE_EVIDENCE_BYTES} from '../backend/evidence-limits.mjs';
+import {LEGACY_WORKBOOK_EVIDENCE_VERSION,MAX_FULL_FILE_EVIDENCE_BYTES,WORKBOOK_EVIDENCE_VERSION} from '../backend/evidence-limits.mjs';
 const XLSX=createRequire(import.meta.url)('../src/vendor/xlsx.full.min.js');
 const activity={id:'test-activity',kind:'routine',title:'بررسی گزارشهای فرد',description:'ردیف‌های فرد و بازهٔ زمانی گزارش را بررسی کن.',period:'1405-07',criteria:[{id:'C1',text:'گزارش مربوط به فرد با موعد مشخص ارائه شود.'}]},context={version:'task-evidence-context-v2',subject:{id:'synthetic-person',name:'فرد ساختگی'}};
 function bookBytes(count=900){const b=XLSX.utils.book_new();for(const name of ['گزارشها','اطلاعات تکمیلی']){const rows=[['مسئول','موعد','زمان ارسال','شرح'],...Array.from({length:count},(_,i)=>['فرد ساختگی','15:00','15:03',i===count-1?'LAST_ROW_EVIDENCE':'ردیف ساختگی '+i])];XLSX.utils.book_append_sheet(b,XLSX.utils.aoa_to_sheet(rows),name);}return XLSX.write(b,{type:'buffer',bookType:'xlsx'});}
@@ -79,6 +79,21 @@ test('failed file part never becomes a score, changed context aborts and invalid
 });
 test('legacy discovery is reread from the original file without overwriting the original extraction or score',async t=>{
  const {root,path,doc,bytes}=await fixture(t,160),discovery=preprocessWorkbook(bytes,'xlsx');const legacy={...doc,extraction:{status:'partial',warnings:discovery.warnings,chunks:[{id:doc.id+':1',label:'ساختار و آمار اکسل',text:discovery.context}]}};const before=JSON.stringify(legacy.extraction),evidence=await loadFullFileEvidence([legacy],root);assert.equal(evidence.incomplete,false);assert.equal(evidence.documents[0].workbook.totalCells,1288);assert.equal(evidence.documents[0].extractionHash,sha256(before));assert.notEqual(evidence.documents[0].processingHash,sha256(before));assert.equal(JSON.stringify(legacy.extraction),before);await writeFile(path,'changed');await assert.rejects(loadFullFileEvidence([legacy],root),/فایل اصلی تغییر/);
+});
+test('new reviews upgrade stored workbook evidence while a resumed review retains its original format',async t=>{
+ const {root,path,doc}=await fixture(t,10);
+ const extraction=await extractDocument(path,'xlsx',doc.id,{workbookEvidenceVersion:LEGACY_WORKBOOK_EVIDENCE_VERSION});
+ const legacy={...doc,extraction};
+ const oldMetadata={documents:[{id:doc.id,workbook:extraction.workbook}]};
+ const resumed=await loadFullFileEvidence([legacy],root,{previousEvidence:oldMetadata});
+ assert.deepEqual(resumed.chunks,extraction.chunks.map(chunk=>({...chunk,documentId:doc.id})));
+ assert.equal(resumed.documents[0].processingHash,sha256(JSON.stringify(extraction)));
+ const current=await loadFullFileEvidence([legacy],root);
+ assert.equal(current.documents[0].workbook.version,WORKBOOK_EVIDENCE_VERSION);
+ assert.equal(current.documents[0].workbook.totalCells,extraction.workbook.totalCells);
+ assert.equal(legacy.extraction.workbook.version,LEGACY_WORKBOOK_EVIDENCE_VERSION);
+ const reread=await loadFullFileEvidence([doc],root,{previousEvidence:oldMetadata});
+ assert.deepEqual(reread.chunks,resumed.chunks);
 });
 test('incomplete reading cannot produce a final score, and retry only reuses exact grounded file parts',async t=>{
  const {root,doc}=await fixture(t,400),evidence=await loadFullFileEvidence([doc],root),cache=new Map();let calls=0;

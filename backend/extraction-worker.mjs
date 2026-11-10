@@ -2,7 +2,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import {extractWorkbookEvidence} from './workbook-harness.mjs';
-import {MAX_FULL_FILE_EVIDENCE_BYTES} from './evidence-limits.mjs';
+import {LEGACY_WORKBOOK_EVIDENCE_VERSION,MAX_FULL_FILE_EVIDENCE_BYTES} from './evidence-limits.mjs';
 import {dirname,join} from 'node:path';
 import { unzipSync, strFromU8 } from 'fflate';
 const require = createRequire(import.meta.url);
@@ -27,7 +27,7 @@ async function extract() {
     canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);capture('تصویر',canvas);
   } else
   if (['xlsx','xls','xlsb','xlsm','csv','tsv'].includes(extension)) {
-    const result=extractWorkbookEvidence(buffer,extension);workbookManifest=result.manifest;
+    const result=extractWorkbookEvidence(buffer,extension,{legacy:workerData.workbookEvidenceVersion===LEGACY_WORKBOOK_EVIDENCE_VERSION});workbookManifest=result.manifest;
     for(const section of result.sections)add(section.label,section.text);
     partial=result.partial||workbookNonCellContent;
     workbookManifest.nonCellContentUnprocessed=workbookNonCellContent;

@@ -35,7 +35,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  };
  const sourceHash=(a,documents=docs(a))=>sha256(JSON.stringify({task:task(a),context:context(a),documents:documents.map(d=>[d.id,d.sha256,sha256(JSON.stringify(d.extraction))]).sort((x,y)=>x[0].localeCompare(y[0]))}));
  const locked=a=>closedActivity(store,a)||store.list('quarter-evaluation',a.ownerId).some(q=>q.status==='locked'&&q.quarter===a.period);
- async function prepare(actor,a,provider,automatic=false,documentSource=()=>docs(a)){
+ async function prepare(actor,a,provider,automatic=false,documentSource=()=>docs(a),previousEvidence){
   assertProvider(provider);
   assertActivityHumanWritable(store,a);
   if(workflow.user(a.ownerId)?.role==='personnel'&&(workflow.user(a.ownerId)?.isSettled||(/^14\d{2}-Q[1-4]$/.test(a.period)?workflow.userAt(a.ownerId,a.period):workflow.user(a.ownerId))?.isKpiEligible===false))fail('این فرد خارج از فرایند KPI است.',403);
@@ -43,7 +43,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
   if(automatic&&(actor.role!=='personnel'||a.assignmentStatus!=='approved'))fail('ارزیابی خودکار فقط برای شاخص منتشرشده پرسنل فعال است.');
   if(locked(a))fail('نتیجه فصل قفل‌شده است؛ بررسی تازه از مسیر جاری مجاز نیست.');
   const documents=documentSource();if(!documents.length)fail('ابتدا مستند بارگذاری کنید.',400);
-  const initialHash=sourceHash(a,documents),evidence=await loadFullFileEvidence(documents,uploadRoot);
+  const initialHash=sourceHash(a,documents),evidence=await loadFullFileEvidence(documents,uploadRoot,{previousEvidence});
   assertProvider(provider);
   const rules=submissionRules(store,a,documents,{review:true}),config=providerConfig(provider),evaluationContext=context(a);
   const fresh=store.get(a.id,'activity');if(!fresh||fresh.removedAt||sourceHash(fresh,documentSource())!==initialHash||workflow.user(a.ownerId)?.isSettled||locked(fresh))fail('شاخص یا شواهد هنگام خواندن فایل تغییر کرده است.');
@@ -82,7 +82,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
  async function resume(actor,a,reviewId,{dryRun=false}={}){
   const documentSource=()=>resumeDocuments(actor,a,reviewId),original=store.get(reviewId,'review');
   documentSource();
-  const candidate=await prepare(actor,a,original.provider,original.automatic,documentSource);
+  const candidate=await prepare(actor,a,original.provider,original.automatic,documentSource,original.evidenceSnapshot);
   if(candidate.fingerprint!==original.fingerprint||candidate.sourceHash!==original.sourceHash)fail('قواعد یا شواهد این بررسی تغییر کرده است؛ بخش‌های قبلی قابل بازاستفاده نیستند.');
   const parts=planFileParts(candidate.activitySnapshot,candidate.evidenceSnapshot,candidate.contextSnapshot),read=original.fileProcessing.readParts,savedParts=store.list('review-file-part',reviewId);
   if(read>parts.length)fail('پیشرفت قبلی با فایل جاری مطابقت ندارد.');
