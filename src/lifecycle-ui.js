@@ -1,6 +1,6 @@
 (() => {
   const $=selector=>document.querySelector(selector),esc=escapeHtml,api=(path,options)=>window.PanelWorkflow.api(path,options),post=(path,data)=>window.PanelWorkflow.post(path,data);
-const roleViews={caseReview:['personnel','manager','hr'],announcements:['hr'],managerDashboard:['manager'],managerPersonnel:['manager'],peerSurveys:['manager'],chat:['personnel','manager','hr'],notes:['personnel','manager','hr'],quarters:['personnel','manager','hr'],tasks:['manager'],positionReview:['manager'],personnelRequestsArchive:['manager'],organization:['hr'],evaluationSettings:['hr'],scoreSettings:['hr'],aiModelSettings:['hr'],updates:['hr'],duties:['hr'],incoming:['hr'],incomingArchive:['hr'],ai:['hr'],aiArchive:['hr'],chart:['personnel','manager','hr'],data:['hr'],appeals:['personnel','hr']};
+const roleViews={guide:['personnel','manager'],caseReview:['personnel','manager','hr'],announcements:['hr'],managerDashboard:['manager'],managerPersonnel:['manager'],peerSurveys:['manager'],chat:['personnel','manager','hr'],notes:['personnel','manager','hr'],quarters:['personnel','manager','hr'],tasks:['manager'],positionReview:['manager'],personnelRequestsArchive:['manager'],organization:['hr'],evaluationSettings:['hr'],scoreSettings:['hr'],aiModelSettings:['hr'],updates:['hr'],duties:['hr'],incoming:['hr'],incomingArchive:['hr'],ai:['hr'],aiArchive:['hr'],chart:['personnel','manager','hr'],data:['hr'],appeals:['personnel','hr']};
   const labels={ai_pending:'در انتظار بررسی AI',ai_failed:'تحلیل AI ناموفق؛ آماده تلاش دوباره',manager_review:'در انتظار بازبینی مدیر',hr_review:'در انتظار بازبینی ادمین',published:'منتشرشده',draft:'پیش‌نویس',needs_revision:'نیازمند اصلاح',rejected:'ردشده',manager_review_position:'در انتظار مدیر مقصد',hr_approval:'در انتظار تصویب ادمین',locked:'قفل‌شده',incomplete:'ناقص؛ بدون صفرسازی',ready:'آماده بررسی',approved:'تأییدشده',returned:'برگشت‌خورده',completed:'تکمیل‌شده',complete:'کامل',partial:'بخشی',quarantined:'قرنطینه‌شده',open:'باز',insufficient:'مشارکت ناکافی؛ بدون امتیاز',collecting:'در حال جمع‌آوری پاسخ'};
   const money=value=>value===null||value===undefined?'—':Number.isFinite(value)?faMoney.format(value)+' تومان':'N/A',pct=value=>value===null||value===undefined?'در انتظار':Number.isFinite(value)?faPercent.format(value)+'٪':'N/A';
   let user=null,positions=[],positionRequests=[],managerRequestsData={positions:[],appeals:[]},designs=[],deadlines=[],quarterRows=[],evaluations=[],appeals=[],campaigns=[],examImports=[],orgChart=null,orgUnits=[],orgSections=[],evaluationSettingsData=null,evaluationModelsData=null,selectedSettingsUnitId=null,modelPreview=null,modelPreviewGeneration=0,selectedServiceCampaignId=null,stagedDesignTasks=[],designDraftEmployeeId=null;
@@ -18,6 +18,26 @@ const roleViews={caseReview:['personnel','manager','hr'],announcements:['hr'],ma
   makeView('case-review','بازبینی و تمدید مهلت','i-appeal',roleViews.caseReview);
   makeView('notes','یادداشت‌ها','i-file',roleViews.notes);
   makeView('chat','Chat','i-users',roleViews.chat);
+  const guideView=makeView('guide','راهنما','i-file',roleViews.guide);
+  guideView.innerHTML=`<div class="page-heading"><div><h1>راهنمای پنل</h1><p>برای دیدن وضعیت فصل موردنظر، از «دوره KPI» در سربرگ، سال و فصل را انتخاب کنید و «اعمال» را بزنید.</p></div></div>
+    <section class="panel settings-card" data-guide-role="personnel" aria-labelledby="personnelGuideTitle" hidden>
+      <h2 id="personnelGuideTitle">راهنمای پرسنل</h2>
+      <ul class="panel-guide-list">
+        <li><strong>پیشخوان</strong><p>موعدهای امروز، کارهای معوق، وضعیت گزارش‌ها و نظرسنجی‌های در انتظار پاسخ را ببینید.</p></li>
+        <li><strong>شاخص‌های KPI</strong><p>شاخص روتین یا پروژه‌ای را باز کنید، از «ثبت گزارش» توضیح و مستندات را بفرستید و نتیجهٔ بررسی را در جزئیات همان شاخص ببینید.</p></li>
+        <li><strong>ارزیابی فصلی</strong><p>وضعیت تکمیل امتیازها و نتیجهٔ فصل را پیگیری کنید. نتیجهٔ نهایی پس از تأیید و قفل‌شدن ارزیابی نمایش داده می‌شود.</p></li>
+        <li><strong>درخواست‌های اعتراض</strong><p>در این بخش می‌توانید اعتراض به نتیجهٔ فصل یا درخواست بازبینی و تمدید مهلت را ثبت و پیگیری کنید.</p></li>
+      </ul>
+    </section>
+    <section class="panel settings-card" data-guide-role="manager" aria-labelledby="managerGuideTitle" hidden>
+      <h2 id="managerGuideTitle">راهنمای مدیر</h2>
+      <ul class="panel-guide-list">
+        <li><strong>داشبورد و عملکرد واحد</strong><p>موعدها، وضعیت گزارش‌ها و کارهای نیازمند اقدام را برای پرسنل زیرمجموعه ببینید.</p></li>
+        <li><strong>تعریف شاخص‌ها</strong><p>معیار پذیرش، وزن و موعد شاخص را ثبت کنید. طرح را برای بررسی هوش مصنوعی بفرستید و نتیجه را پیش از ارسال برای تصویب ادمین مرور کنید.</p></li>
+        <li><strong>رضایت‌سنجی پرسنل و ارزیابی فصلی</strong><p>امتیاز مدیر را در رضایت‌سنجی ثبت کنید. پس از تکمیل مؤلفه‌ها، در ارزیابی فصلی «ارسال برای ادمین» را بزنید.</p></li>
+        <li><strong>درخواست‌های پرسنلی</strong><p>درخواست‌های ثبت پرسنل، تغییر سمت، اعتراض و تأیید نهایی گزارش شاخص‌ها را در صف‌های مربوط بررسی کنید.</p></li>
+      </ul>
+    </section>`;
   makeView('announcements','اطلاعیه‌ها','i-megaphone',roleViews.announcements);
   const managerDashboardView=makeView('manager-dashboard','داشبورد','i-home',roleViews.managerDashboard);
   managerDashboardView.innerHTML='<div class="page-heading"><div><p class="eyebrow">مدیر · پیگیری تیم</p><h1>داشبورد مدیریتی</h1><p>موعدها، وضعیت گزارش‌ها و تصمیم‌های در انتظار در محدودهٔ دسترسی شما</p></div></div><div id="managerOperations"><p class="workflow-muted" role="status">در حال دریافت اطلاعات تیم…</p></div>';
@@ -471,13 +491,14 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     if(user?.id&&user.id!==next?.id)resetDesignForm();
     if(user?.id!==next?.id){$('#dutiesList').replaceChildren();$('#dutiesCount').textContent='';$('#dutiesSearch').value='';$('#dutiesUnit').innerHTML='<option value="">همهٔ واحدها</option>';resetPersonnelImport(true);$('#personImportForm').reset();}
     user=next;const role=user?.role;document.querySelectorAll('[data-lifecycle-view]').forEach(nav=>nav.hidden=!roleViews[camelView(nav.dataset.view)]?.includes(role));
+    guideView.querySelectorAll('[data-guide-role]').forEach(section=>section.hidden=section.dataset.guideRole!==role);
     if(role==='hr')$('[data-view="appeals"]').hidden=true;
     const chartNav=$('[data-view="chart"]'),chartName=role==='hr'?'چارت سازمانی پرسنل':role==='manager'?'اطلاعات مدیر':'اطلاعات پرسنلی';
     chartNav.title=chartName;chartNav.setAttribute('aria-label',chartName);chartNav.querySelector('span').textContent=chartName;chartNav.querySelector('use').setAttribute('href',role==='hr'?'#i-org-chart':'#i-person-card');$('#chartTitle').textContent=chartName;$('#personalInfo').hidden=role==='hr';
     const navigationOrder=role==='personnel'
-      ?['dashboard','chart','quarters','group:kpi','surveys','group:appealRequests','chat','notes']
+      ?['dashboard','chart','quarters','group:kpi','surveys','group:appealRequests','guide','chat','notes']
       :role==='manager'
-        ?['manager-dashboard','group:managerKpi','group:managerPersonnel','group:managerSurveys','tasks','group:managerRequests','group:appealRequests','chat','notes']
+        ?['manager-dashboard','group:managerKpi','group:managerPersonnel','group:managerSurveys','tasks','group:managerRequests','group:appealRequests','guide','chat','notes']
         :['quarters','group:panelSettings','group:personnel','data','surveys','announcements','group:requests','group:ai','chat','notes'];
     const navContainer=document.querySelector('.main-nav');
     for(const view of new Set(Object.values(navigationGroups).flatMap(group=>group.views)))navContainer.append($(`[data-view="${view}"]`));

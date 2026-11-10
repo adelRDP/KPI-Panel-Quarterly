@@ -979,14 +979,9 @@ select option,select optgroup { background: var(--color-select-option); color: v
 .sidebar .sidebar-toggle { color: var(--color-sidebar-text); border-color: var(--color-sidebar-separator); background: var(--color-sidebar-control); }
 .sidebar .sidebar-toggle:hover { color: var(--color-sidebar-text); border-color: var(--color-sidebar-active-border); background: var(--color-sidebar-hover); }
 @media (min-width: 821px) { .sidebar.is-collapsed .sidebar-header .sidebar-toggle { border-color: var(--color-sidebar-separator); background: var(--color-sidebar-control); } }
-.help-widget { position: relative; }
-.help-trigger { font-size: 22px; font-weight: 800; line-height: 1; }
-.help-popover { position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: 0; width: min(310px,calc(100vw - 32px)); padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-popover-opaque); color: var(--color-text); box-shadow: var(--shadow-modal); }
-.help-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.help-popover-heading h2 { margin: 0; font-size: var(--text-body); }
-.help-popover-heading button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: var(--color-surface-subtle); color: var(--color-text-secondary); }
-.help-popover-heading button svg { width: 16px; height: 16px; }
-.help-popover p { margin: 8px 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.75; }
+.panel-guide-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.panel-guide-list li { padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-subtle); }
+.panel-guide-list p { margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.8; }
 @media (max-width: 580px) { .top-actions { gap: 6px; }.theme-toggle { width: 36px; height: 36px; } }
 @media (prefers-reduced-motion: reduce) { .view,.modal,.toast { animation: none; transition: none; } }
 .survey-month-group { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); margin-top: 12px; overflow: hidden; }

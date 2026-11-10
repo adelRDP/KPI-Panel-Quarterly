@@ -455,7 +455,12 @@
     managerDetailPresentation(false);
     setDashboardLevel(session.user.role==='personnel'?dashboardLevel:'month');
     const photo=$('#personnelPhoto');if(photo){const label=`باز کردن اطلاعات پرسنلی ${accountName(session.user)}`;photo.setAttribute('aria-label',label);photo.title=label;photo.onclick=()=>showView('chart');}
-    const role=session.user.role,manager=role==='manager',displayName=accountName(session.user);$('.profile-card strong').textContent=displayName;$('.profile-card small').textContent=role==='hr'?'دسترسی ادمین':`${session.user.unitName||'واحد نامشخص'} · ${session.user.jobTitle||session.user.level||'سمت ثبت نشده'}`;$('.profile-card .avatar').innerHTML='<svg aria-hidden="true"><use href="#i-person"/></svg>';
+    const role=session.user.role,manager=role==='manager',displayName=accountName(session.user);
+    const position=session.user.jobTitle||session.user.level||'سمت ثبت نشده';
+    const positionLabel=/^\s*manager\s*$/i.test(position)?'مدیر':position;
+    $('.profile-card strong').textContent=displayName;
+    $('.profile-card small').textContent=role==='hr'?'دسترسی ادمین':`${session.user.unitName||'واحد نامشخص'} · ${positionLabel}`;
+    $('.profile-card .avatar').innerHTML='<svg aria-hidden="true"><use href="#i-person"/></svg>';
     $('#workflowRole').textContent=role==='manager'?'پنل مدیر':role==='hr'?'پنل ادمین':'پنل پرسنل';$('#demoRole').value=role;$('#demoAccount').innerHTML=session.accounts.filter(a=>a.role===role).map(a=>`<option value="${escape(a.id)}">${escape(accountName(a))}</option>`).join('');$('#demoAccount').value=session.user.id;$('#demoAccount').title=displayName;
     for(const name of ['team','surveys','proposals'])$(`[data-view="${name}"]`).hidden=!manager;
     $('[data-view="dashboard"]').hidden=role!=='personnel';for(const {view} of assignmentViews)$(`[data-view="${view}"]`).hidden=role!=='personnel';window.PanelLifecycle?.applySession(session.user);updatePeriodVisibility(document.querySelector('.view.active')?.id.slice(5));

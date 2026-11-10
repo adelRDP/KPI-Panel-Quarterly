@@ -409,9 +409,3 @@ document.addEventListener('click', e => {
 
 document.querySelector('#documentSearch').addEventListener('input', renderDocuments);
 document.querySelector('#categoryFilter').addEventListener('change', renderDocuments);
-const helpWidget=document.querySelector('#helpWidget'),helpToggle=document.querySelector('#helpToggle'),helpPanel=document.querySelector('#helpPanel');
-function setHelpOpen(open){helpPanel.hidden=!open;helpToggle.setAttribute('aria-expanded',String(open));helpToggle.setAttribute('aria-label',open?'بستن راهنما':'باز کردن راهنما');}
-helpToggle.addEventListener('click',()=>setHelpOpen(helpPanel.hidden));
-document.querySelector('#helpClose').addEventListener('click',()=>{setHelpOpen(false);helpToggle.focus();});
-document.addEventListener('pointerdown',event=>{if(!helpPanel.hidden&&!helpWidget.contains(event.target))setHelpOpen(false);});
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!helpPanel.hidden){setHelpOpen(false);helpToggle.focus();}});
