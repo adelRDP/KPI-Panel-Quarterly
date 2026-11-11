@@ -256,6 +256,7 @@ function renderKpiDashboard() {
 function renderAll() { renderDocuments(); renderUsers(); renderActivities(); renderKpiDashboard(); }
 
 function showView(name) {
+  if(name==='home'&&window.PanelWorkflow)return window.PanelWorkflow.home();
   if(name==='appeals'&&window.PanelWorkflow?.user?.role==='hr')name='incoming';
   if(window.PanelWorkflow&&!window.PanelWorkflow.canView(name))return;
   if(window.PanelUtilities&&['chat','notes'].includes(name))return window.PanelUtilities.open(name);

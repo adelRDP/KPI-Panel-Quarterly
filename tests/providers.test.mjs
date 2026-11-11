@@ -14,10 +14,10 @@ test('API adapters use configured model, schema and server-only credentials',asy
     const upper=provider.toUpperCase();process.env[upper+'_API_KEY']='TEST_SECRET';process.env[upper+'_MODEL']='test-model';
     globalThis.fetch=async(url,options)=>{
       const body=JSON.parse(options.body);assert.equal(options.method,'POST');assert.ok(!options.body.includes('TEST_SECRET'));assert.equal(options.signal.aborted,false);
-      if(provider==='openai'){assert.equal(body.model,'test-model');assert.equal(body.store,false);assert.equal(body.text.format.strict,true);assert.match(options.headers.Authorization,/TEST_SECRET/);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify(answer)}]}],usage:{input_tokens:1}});}
+      if(provider==='openai'){assert.equal(body.model,'test-model');assert.equal(body.store,false);assert.equal(body.reasoning.effort,'high');assert.equal(body.text.format.strict,true);assert.match(options.headers.Authorization,/TEST_SECRET/);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify(answer)}]}],usage:{input_tokens:1}});}
       assert.match(url,/test-model:generateContent$/);assert.equal(options.headers['x-goog-api-key'],'TEST_SECRET');assert.ok(body.generationConfig.responseJsonSchema);return Response.json({candidates:[{content:{parts:[{text:JSON.stringify(answer)}]}}]});
     };
-    assert.deepEqual((await assess({provider,prompt:'test'})).result,answer);
+    assert.deepEqual((await assess({provider,prompt:'test'},{reasoningEffort:'high'})).result,answer);
     globalThis.fetch=async()=>new Response('secret server details',{status:429});await assert.rejects(assess({provider,prompt:'test'}),/HTTP 429/);
     delete process.env[upper+'_API_KEY'];await assert.rejects(assess({provider,prompt:'test'}));
   }

@@ -1508,3 +1508,5 @@ select option,select optgroup { background: var(--color-select-option); color: v
 .score-history-reason { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9; }
 .score-history-dialog h3 { font-size:var(--text-sm); }
 @media(max-width:680px){.score-history-row{gap:10px;}.score-history-dialog .score-history-meta,.score-history-values{grid-template-columns:minmax(0,1fr);}.score-history-dialog .design-analysis-dialog-header,.score-history-dialog .design-analysis-dialog-body,.score-history-dialog .design-analysis-dialog-footer{padding-inline:16px;}}
+
+.brand-home{border:0;background:transparent;padding:0;cursor:pointer;color:inherit}.brand-home:focus-visible{outline:2px solid var(--accent,#1acba1);outline-offset:4px;border-radius:12px}

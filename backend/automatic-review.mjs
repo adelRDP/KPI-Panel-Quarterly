@@ -50,7 +50,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
   if(!evidence.chunks.length)fail('هیچ متن قابل ارزیابی استخراج نشده است؛ فایل ذخیره شد اما خوانش یا تبدیل مستند باید تکمیل شود.',400);
   const snapshot=task(a);requireWorkEvidence({task:snapshot,context:evaluationContext},{referenceOnly:true});
   const parts=planFileParts(snapshot,evidence,evaluationContext),fingerprint=sha256(JSON.stringify({activity:snapshot,evidence,config,policy:POLICY_VERSION,context:evaluationContext,scoreRules:rules.policy}));
-  return {fingerprint,provider,model:config.model,synthesisVersion:FILE_SYNTHESIS_VERSION,processingPolicy:'complete-file-resilient-v1',modelTimeoutMs:FILE_MODEL_TIMEOUT_MS,resilientProcessing:true,automatic,actorId:actor.id,inputsVersion:evaluationContext.version,status:'queued',createdAt:now(),policyVersion:POLICY_VERSION,activitySnapshot:snapshot,contextSnapshot:evaluationContext,sourceHash:initialHash,documentHashes:evidence.documents,evidenceSnapshot:evidence,promptHash:sha256(JSON.stringify({version:FILE_REVIEW_VERSION,synthesisVersion:FILE_SYNTHESIS_VERSION,fingerprint})),fileProcessing:{version:FILE_REVIEW_VERSION,phase:'queued',readParts:0,totalParts:parts.length},scoreRulesSnapshot:rules.policy,submissionKey:rules.submissionKey,submissionRevision:rules.revision,submittedAt:rules.submittedAt,submissionDueDate:rules.dueDate,lateDays:rules.lateDays};
+  return {fingerprint,provider,model:config.model,...(config.reasoningEffort?{reasoningEffort:config.reasoningEffort}:{}),synthesisVersion:FILE_SYNTHESIS_VERSION,processingPolicy:'complete-file-resilient-v1',modelTimeoutMs:FILE_MODEL_TIMEOUT_MS,resilientProcessing:true,automatic,actorId:actor.id,inputsVersion:evaluationContext.version,status:'queued',createdAt:now(),policyVersion:POLICY_VERSION,activitySnapshot:snapshot,contextSnapshot:evaluationContext,sourceHash:initialHash,documentHashes:evidence.documents,evidenceSnapshot:evidence,promptHash:sha256(JSON.stringify({version:FILE_REVIEW_VERSION,synthesisVersion:FILE_SYNTHESIS_VERSION,fingerprint})),fileProcessing:{version:FILE_REVIEW_VERSION,phase:'queued',readParts:0,totalParts:parts.length},scoreRulesSnapshot:rules.policy,submissionKey:rules.submissionKey,submissionRevision:rules.revision,submittedAt:rules.submittedAt,submissionDueDate:rules.dueDate,lateDays:rules.lateDays};
  }
  async function queue(actor,a,provider,{automatic=false,retry=false}={}){
   let candidate;
@@ -70,7 +70,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
   const row=store.get(reviewId,'review'),fresh=store.get(a.id,'activity');
   if(!row||!fresh||fresh.removedAt||row.activitySnapshot?.id!==a.id||actor?.id!==fresh.ownerId||row.actorId!==actor.id)fail('ادامهٔ این بررسی برای حساب یا شاخص جاری مجاز نیست.',403);
   if(store.list('review',a.id)[0]?.id!==row.id||row.status!=='failed'||row.inputsVersion!=='task-evidence-context-v2'||row.policyVersion!==POLICY_VERSION||!(row.fileProcessing?.readParts>0)||!reviewEvidenceMatches(store,fresh,row))fail('ادامه فقط برای آخرین بررسی ناموفق با همان مستندات مجاز است.');
-  if(sha256(JSON.stringify(task(fresh)))!==sha256(JSON.stringify(row.activitySnapshot))||sha256(JSON.stringify(context(fresh)))!==sha256(JSON.stringify(row.contextSnapshot))||providerConfig(row.provider).model!==row.model)fail('تعریف شاخص، شرح وظایف یا مدل تغییر کرده است؛ ادامهٔ نتیجهٔ قبلی مجاز نیست.');
+  if(sha256(JSON.stringify(task(fresh)))!==sha256(JSON.stringify(row.activitySnapshot))||sha256(JSON.stringify(context(fresh)))!==sha256(JSON.stringify(row.contextSnapshot))||(providerConfig(row.provider).model!==row.model||(providerConfig(row.provider).reasoningEffort||'medium')!==(row.reasoningEffort||'medium')))fail('تعریف شاخص، شرح وظایف یا مدل تغییر کرده است؛ ادامهٔ نتیجهٔ قبلی مجاز نیست.');
   return row.documentHashes.map(ref=>store.get(ref.id,'document'));
  }
  function canResume(actor,a,reviewId){
@@ -116,7 +116,7 @@ export function createAutomaticReview(store,workflow,{runModel,notifications,bus
    const assertCurrent=async()=>{if(stopped)fail('بررسی متوقف شده است.');const fresh=store.get(id,'activity'),owner=fresh&&workflow.user(fresh.ownerId),periodOwner=fresh&&(/^14\d{2}-Q[1-4]$/.test(fresh.period)?workflow.userAt(fresh.ownerId,fresh.period):owner);if(!fresh||fresh.removedAt||owner?.isSettled||row.automatic&&owner?.role!=='personnel'||owner?.role==='personnel'&&periodOwner?.isKpiEligible===false||sourceHash(fresh)!==row.sourceHash||locked(fresh))fail('شاخص، فایل یا وضعیت همکاری تغییر کرده است؛ نمره اعمال نشد.');await assertRawFiles(docs(fresh),uploadRoot);};
    const assertModel=()=>{
     assertProvider(row.provider);
-    if(providerConfig(row.provider).model!==row.model)fail('مدل بررسی تغییر کرده است؛ بررسی را دوباره درخواست کنید.');
+    if((providerConfig(row.provider).model!==row.model||(providerConfig(row.provider).reasoningEffort||'medium')!==(row.reasoningEffort||'medium')))fail('مدل بررسی تغییر کرده است؛ بررسی را دوباره درخواست کنید.');
    };
    assertModel();
    const runCurrentModel=input=>{assertModel();return runModel(input);};

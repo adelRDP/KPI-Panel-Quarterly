@@ -5,6 +5,7 @@ import {join,dirname} from 'node:path';
 import {assess,providerConfig,providerKey,providerStatus,providerIds} from './providers.mjs';
 import {buildPrompt,finalizeReview} from './evaluation.mjs';
 
+const reasoningEfforts=['low','medium','high','xhigh','max'];
 const fail=(message,status=409)=>{throw Object.assign(new Error(message),{status});};
 const timestamp=()=>new Date().toISOString();
 const empty=()=>({defaultProvider:'codex',providers:{}});
@@ -49,7 +50,7 @@ export function createAiProviderSettings({vault,runModel=assess}={}){
   const key=provider=>entry(provider)?.apiKey??providerKey(provider);
   function config(provider){
     const base=providerConfig(provider);
-    return {...base,model:entry(provider)?.model||base.model};
+    return {...base,model:entry(provider)?.model||base.model,...(provider!=='gemini'?{reasoningEffort:entry(provider)?.reasoningEffort||'medium'}:{})};
   }
   const active=provider=>!unavailable&&(entry(provider)?.enabled??(provider==='codex'));
   const defaultProvider=()=>settings.defaultProvider;
@@ -64,7 +65,7 @@ export function createAiProviderSettings({vault,runModel=assess}={}){
       const configured=provider==='codex'?item.ready:!!(key(provider)&&model);
       const ready=enabled&&configured;
       const message=provider==='codex'?item.message:configured?'مدل و کلید API روی سرور تنظیم شده‌اند.':'برای اتصال، مدل و کلید API را تنظیم کنید.';
-      return {provider,ready,enabled,message,...(admin?{model,lastTest,hasKey:provider!=='codex'&&!!key(provider)}:{})};
+      return {provider,ready,enabled,message,...(admin?{model,...(provider!=='gemini'?{reasoningEffort:config(provider).reasoningEffort,reasoningEfforts}:{}),lastTest,hasKey:provider!=='codex'&&!!key(provider)}:{})};
     })};
   }
   function persist(next){
@@ -84,8 +85,10 @@ export function createAiProviderSettings({vault,runModel=assess}={}){
       const hasNewKey=Object.hasOwn(input,'apiKey');
       if(hasNewKey&&(!allowKeyEntry||provider==='codex'))fail('ثبت کلید API فقط از مسیر امن مجاز است.',403);
       if(hasNewKey&&(typeof input.apiKey!=='string'||!/^\S{1,2048}$/.test(input.apiKey)))fail('کلید API معتبر نیست.',400);
-      const changed=input.model!==config(provider).model||(hasNewKey&&input.apiKey!==key(provider));
-      if(changed)update(provider,{model:input.model,...(hasNewKey?{apiKey:input.apiKey}:{}),enabled:false,lastTest:null});
+      const reasoningEffort=provider==='gemini'?undefined:(input.reasoningEffort??config(provider).reasoningEffort);
+      if(provider!=='gemini'&&!reasoningEfforts.includes(reasoningEffort))fail('میزان تفکر معتبر نیست.',400);
+      const changed=reasoningEffort!==config(provider).reasoningEffort||input.model!==config(provider).model||(hasNewKey&&input.apiKey!==key(provider));
+      if(changed)update(provider,{model:input.model,...(reasoningEffort?{reasoningEffort}:{}),...(hasNewKey?{apiKey:input.apiKey}:{}),enabled:false,lastTest:null});
       return {message:changed?'تنظیمات ذخیره شد. اتصال را تست و دوباره فعال کنید.':'تنظیمات از قبل ذخیره شده است.'};
     }
     if(action==='test'){
@@ -95,7 +98,7 @@ export function createAiProviderSettings({vault,runModel=assess}={}){
       try{
         let ok=false;
         try{
-          const {result}=await runModel({provider,prompt:buildPrompt(sample,evidence),timeoutMs:60000},{model,apiKey});
+          const {result}=await runModel({provider,prompt:buildPrompt(sample,evidence),timeoutMs:60000},{model,apiKey,...(config(provider).reasoningEffort?{reasoningEffort:config(provider).reasoningEffort}:{})});
           ok=finalizeReview(result,sample,evidence).decision==='completed';
         }catch{}
         const message=ok?'تست موفق بود. پاسخ و ارجاع نمونه معتبر است.':'تست ناموفق بود. مدل، اعتبار ورود یا کلید، سهمیه و ارتباط سرور را بررسی کنید.';
@@ -118,7 +121,7 @@ export function createAiProviderSettings({vault,runModel=assess}={}){
   }
   async function run(input){
     assertActive(input.provider);
-    return runModel(input,{model:config(input.provider).model,apiKey:key(input.provider)});
+    return runModel(input,{...config(input.provider),apiKey:key(input.provider)});
   }
   return {status,change,config,active,assertActive,defaultProvider,run};
 }

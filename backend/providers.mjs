@@ -31,7 +31,7 @@ export async function providerStatus() {
   return {defaultProvider:process.env.LLM_PROVIDER||'codex',providers:[codex,
     ...['openai','gemini'].map(provider=>{const ready=!!(process.env[provider.toUpperCase()+'_API_KEY']&&process.env[provider.toUpperCase()+'_MODEL']);return {provider,ready,message:ready?'تنظیمات موجود است؛ اتصال هنگام ارزیابی آزموده می‌شود.':`نیازمند ${provider.toUpperCase()}_API_KEY و ${provider.toUpperCase()}_MODEL روی سرور`};})]};
 }
-export async function assess({provider,prompt,schema=resultSchema,images=[],timeoutMs=120000},{model,apiKey}={}) {
+export async function assess({provider,prompt,schema=resultSchema,images=[],timeoutMs=120000},{model,apiKey,reasoningEffort}={}) {
   if(!Number.isInteger(timeoutMs)||timeoutMs<1000||timeoutMs>300000)throw new Error('مهلت اجرای مدل معتبر نیست.');
   if(Buffer.byteLength(prompt)>50000)throw new Error('ورودی مدل از سقف مجاز عبور کرده است.');
   if(images.length>5)throw new Error('حداکثر ۵ تصویر در هر تبدیل.');
@@ -48,7 +48,7 @@ export async function assess({provider,prompt,schema=resultSchema,images=[],time
     const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>/^(PATH|PATHEXT|SystemRoot|WINDIR|COMSPEC|TEMP|TMP|USERPROFILE|HOME|LOCALAPPDATA|APPDATA|CODEX_HOME|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|SSL_CERT_FILE)$/i.test(key)));
     try {
     const client=new Codex({codexPathOverride:path,env,config:{forced_login_method:'chatgpt',project_doc_max_bytes:0,model_instructions_file:fileURLToPath(new URL('./reviewer-instructions.md',import.meta.url)),developer_instructions:'Evidence-only processing. No tools or unrelated context.',features:{shell_tool:false,unified_exec:false,apps:false}},configOverrides:['mcp_servers={}','apps._default.enabled=false']});
-    const thread=client.startThread({workingDirectory,skipGitRepoCheck:true,sandboxMode:'read-only',approvalPolicy:'never',networkAccessEnabled:false,webSearchMode:'disabled',model:config.model,modelReasoningEffort:DEFAULT_CODEX_REASONING});
+    const thread=client.startThread({workingDirectory,skipGitRepoCheck:true,sandboxMode:'read-only',approvalPolicy:'never',networkAccessEnabled:false,webSearchMode:'disabled',model:config.model,modelReasoningEffort:reasoningEffort||DEFAULT_CODEX_REASONING});
       const turn=await thread.run(images.length?[{type:'text',text:prompt},...images.map(image=>({type:'local_image',path:image.path}))]:prompt,{outputSchema:schema,signal:AbortSignal.timeout(timeoutMs)});
       if(turn.items.some(i=>['command_execution','mcp_tool_call','web_search','file_change'].includes(i.type)))throw new Error('ارزیابی خارج از محدوده شواهد متوقف شد.');
       return {result:JSON.parse(turn.finalResponse),usage:turn.usage,threadId:thread.id};
@@ -63,7 +63,7 @@ export async function assess({provider,prompt,schema=resultSchema,images=[],time
   if(!key)throw new Error('کلید API ارائه‌دهنده روی سرور تنظیم نشده است.');
   const request=provider==='openai'?{
     url:'https://api.openai.com/v1/responses', headers:{Authorization:`Bearer ${key}`},
-    body:{model:config.model,input:images.length?[{role:'user',content:[{type:'input_text',text:prompt},...visual.map(image=>({type:'input_image',image_url:`data:${image.mime};base64,${image.data}`,detail:'auto'}))]}]:prompt,store:false,text:{format:{type:'json_schema',name:'activity_review',strict:true,schema}}}
+    body:{model:config.model,...(reasoningEffort?{reasoning:{effort:reasoningEffort}}:{}),input:images.length?[{role:'user',content:[{type:'input_text',text:prompt},...visual.map(image=>({type:'input_image',image_url:`data:${image.mime};base64,${image.data}`,detail:'auto'}))]}]:prompt,store:false,text:{format:{type:'json_schema',name:'activity_review',strict:true,schema}}}
   }:{
     url:`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`,headers:{'x-goog-api-key':key},
     body:{contents:[{role:'user',parts:[{text:prompt},...visual.map(image=>({inlineData:{mimeType:image.mime,data:image.data}}))]}],generationConfig:{responseMimeType:'application/json',responseJsonSchema:schema}}

@@ -12,6 +12,7 @@ export function openStore(root,{readOnly=false}={}) {
   let readCache=null;
   const key=(...parts)=>JSON.stringify(parts),invalidate=()=>readCache?.clear();
   return {
+    root,
     pendingAdminRequestCount() {
       // Count actionable records directly; never parse historical request bodies
       // or confuse unread notifications with work awaiting an admin decision.

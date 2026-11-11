@@ -206,7 +206,8 @@ const roleViews={guide:['personnel','manager'],caseReview:['personnel','manager'
           <p>آخرین تست <bdi>${provider.lastTest?esc(new Date(provider.lastTest.at).toLocaleString('fa-IR')):'انجام نشده'}</bdi>
             ${provider.lastTest?' · '+(provider.lastTest.ok?'موفق':'ناموفق'):''}</p>
           ${result.editable?`<form data-ai-provider="${esc(provider.provider)}">
-            <label>نام مدل<input name="model" dir="ltr" required maxlength="160" value="${esc(provider.model||'')}"></label>
+            <label>نام مدل<input name="model" dir="ltr" required maxlength="160" value="${esc(provider.model||'')}" autocomplete="off"></label>
+            ${provider.provider!=='gemini'?`<label>میزان تفکر<select name="reasoningEffort" data-saved-effort="${esc(provider.reasoningEffort||'medium')}">${(provider.reasoningEfforts||['low','medium','high','xhigh','max']).map(e=>'<option value="'+esc(e)+'" '+(e===provider.reasoningEffort?'selected':'')+'>'+esc(({low:'کم',medium:'متوسط',high:'زیاد',xhigh:'خیلی زیاد',max:'حداکثر'})[e]||e)+'</option>').join('')}</select></label>`:''}
             ${provider.provider==='codex'?'<p>اگر ورود منقضی شد، روی سرور با حساب Codex پنل دوباره وارد شوید.</p>':`
               <label>کلید API<input type="password" name="apiKey" dir="ltr" autocomplete="new-password" maxlength="2048"
                 placeholder="${provider.hasKey?'کلید ثبت شده':'کلید ثبت نشده'}" ${result.allowKeyEntry?'':'disabled'}></label>
@@ -243,16 +244,17 @@ const roleViews={guide:['personnel','manager'],caseReview:['personnel','manager'
     const input={};
     if(action==='save'){
       input.model=form.elements.model.value.trim();
+      if(form.elements.reasoningEffort)input.reasoningEffort=form.elements.reasoningEffort.value;
       const key=form.elements.apiKey;
       if(key?.value.trim()){input.apiKey=key.value.trim();key.value='';}
     }else if(action==='toggle')input.enabled=button.dataset.enabled==='true';
-    else if(form.elements.model.value.trim()!==form.elements.model.defaultValue||form.elements.apiKey?.value){
+    else if(form.elements.model.value.trim()!==form.elements.model.defaultValue||form.elements.reasoningEffort&&form.elements.reasoningEffort.value!==form.elements.reasoningEffort.dataset.savedEffort||form.elements.apiKey?.value){
       $('#aiModelStatus').textContent='برای استفاده از تغییرات فرم، ابتدا تنظیمات را ذخیره کنید.';
       return;
     }
     aiModelWrite=true;
     const request=aiModelStatusRequest;
-    const controls=[...aiModelSettingsView.querySelectorAll('button,input')].filter(control=>!control.disabled);
+    const controls=[...aiModelSettingsView.querySelectorAll('button,input,select')].filter(control=>!control.disabled);
     controls.forEach(control=>{control.disabled=true;});
     $('#aiModelStatus').textContent=action==='test'?'در حال بررسی نمونهٔ ساختگی…':'در حال ذخیره…';
     try{
