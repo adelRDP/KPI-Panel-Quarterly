@@ -37,8 +37,9 @@ import {createAuthThrottle} from './backend/auth-throttle.mjs';
 import {panelInstance} from './backend/panel-health.mjs';
 import {createBackupScheduler} from './backend/panel-backup.mjs';
 import {createExamCorrections} from './backend/exam-corrections.mjs';
+import {isLanRequestHost,isLoopbackAddress} from './backend/lan-access.mjs';
 
-export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,publicOrigin,publicOrigins=[],runModel=assess,providerVault,autoAssessment=true,archiveRejectedEvidence=true,demoLogin,authMode=process.env.PANEL_AUTH_MODE}={}) {
+export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,publicOrigin,publicOrigins=[],lanAccess=false,runModel=assess,providerVault,autoAssessment=true,archiveRejectedEvidence=true,demoLogin,authMode=process.env.PANEL_AUTH_MODE}={}) {
   if(authMode!==undefined&&!['demo','local','hybrid'].includes(authMode))throw Error('PANEL_AUTH_MODE must be demo, local or hybrid');
   const hostedOrigins=new Map();
   for(const origin of [publicOrigin,...publicOrigins].filter(Boolean)){
@@ -133,10 +134,11 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
     res.setHeader('X-Content-Type-Options','nosniff');
     try {
       const host=req.headers.host||'';
-      const localHost=/^(127\.0\.0\.1|localhost):\d+$/.test(host);
+      const localHost=/^(127\.0\.0\.1|localhost):\d+$/.test(host)&&isLoopbackAddress(req.socket.remoteAddress);
+      const lanHost=lanAccess&&isLanRequestHost(host,req.socket.remoteAddress);
       const hostedOrigin=hostedOrigins.get(host),hosted=!!hostedOrigin;
-      if(!localHost&&!hosted)return send(res,403,{error:'Host rejected'});
-      if(localHost&&Number(host.split(':')[1])!==server.address()?.port)return send(res,403,{error:'Port rejected'});
+      if(!localHost&&!lanHost&&!hosted)return send(res,403,{error:'Host rejected'});
+      if((localHost||lanHost)&&Number(host.split(':')[1])!==server.address()?.port)return send(res,403,{error:'Port rejected'});
       const url=new URL(req.url,`http://${host}`); const path=decodeURIComponent(url.pathname);
       // Public document navigation is safe; cross-site API and mutation requests are not.
       if(req.headers['sec-fetch-site']==='cross-site'&&(path.startsWith('/api/')||!['GET','HEAD'].includes(req.method)))return send(res,403,{error:'Cross-site request rejected'});
@@ -534,5 +536,5 @@ export function createPanelServer({root=process.cwd(),dataRoot,uploadRoot,public
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const port=Number(process.env.PORT||4273),bindHost=process.env.PANEL_BIND_HOST||'127.0.0.1';
-  createPanelServer({providerVault:windowsProviderVault(process.cwd()),dataRoot:process.env.PANEL_DATA_ROOT,uploadRoot:process.env.PANEL_UPLOAD_ROOT,publicOrigin:process.env.PANEL_PUBLIC_ORIGIN,publicOrigins:(process.env.PANEL_PUBLIC_ORIGINS||'').split(',').map(value=>value.trim()).filter(Boolean)}).listen(port,bindHost,()=>console.log(`KPI Panel listening on ${bindHost}:${port}`));
+  createPanelServer({providerVault:windowsProviderVault(process.cwd()),dataRoot:process.env.PANEL_DATA_ROOT,uploadRoot:process.env.PANEL_UPLOAD_ROOT,lanAccess:process.env.PANEL_LAN_ACCESS==='true',publicOrigin:process.env.PANEL_PUBLIC_ORIGIN,publicOrigins:(process.env.PANEL_PUBLIC_ORIGINS||'').split(',').map(value=>value.trim()).filter(Boolean)}).listen(port,bindHost,()=>console.log(`KPI Panel listening on ${bindHost}:${port}`));
 }
