@@ -305,7 +305,7 @@ const roleViews={guide:['personnel','manager'],caseReview:['personnel','manager'
   chartView.innerHTML='<div class="page-heading"><div><p class="eyebrow">اطلاعات و ساختار سازمانی</p><h1 id="chartTitle">چارت سازمانی</h1><p id="chartScope"></p></div></div><section id="personalInfo" class="panel settings-card" hidden></section><section class="panel settings-card"><h2>چارت سازمانی</h2><div id="chartContents"></div></section>';
   const managerPersonnelView=makeView('manager-personnel','اطلاعات پرسنل','i-users',roleViews.managerPersonnel);
   managerPersonnelView.innerHTML='<div class="page-heading"><div><p class="eyebrow">مدیر · پرسنل زیرمجموعه</p><h1>اطلاعات پرسنل</h1><p>فهرست مشخصات فعلی پرسنل در محدودهٔ مدیریت شما؛ اطلاعات توسط ادمین به‌روزرسانی می‌شوند.</p></div></div><section class="panel settings-card"><label>جست‌وجوی پرسنل<input id="managerPersonnelSearch" type="search" maxlength="120" placeholder="نام، سمت، واحد یا بخش"></label><p id="managerPersonnelCount" class="workflow-muted" role="status" aria-live="polite"></p><div id="managerPersonnelList"></div></section>';
-orgView.innerHTML='<div class="page-heading"><div><p class="eyebrow">پنل ادمین</p><h1>مدیریت پرسنل</h1><p>واحدها، بخش‌ها و مشخصات پرسنل را ثبت و پیشنهاد تغییر سمت را ارسال کنید.</p></div></div><div class="settings-grid"><form id="positionForm" class="panel settings-card"><h2>تغییر سمت یا جابجایی پرسنل</h2><label>پرسنل<select name="employeeId" id="positionEmployee" required></select></label><div class="form-grid"><label>عنوان شغل<input name="jobTitle" required></label><label>بخش<select name="sectionId" id="positionSection" required></select></label><label>سطح شغل<select name="jobLevel" required><option value="">انتخاب سطح</option><option>کارآموز</option><option>کارشناس</option><option>کارشناس ارشد</option><option>مسئول</option><option>سرپرست</option><option>مدیر</option></select></label><label>مدیر مقصد<select name="managerId" id="positionManager" required></select></label><label>واحد سازمانی<select name="unitId" id="positionUnit" required></select></label><input name="unitName" type="hidden"></div><label>شرح وظایف<textarea name="duties" rows="4" required></textarea></label><div class="form-grid"><label>تاریخ جابه‌جایی (شروع سمت جدید از همین روز)<input name="transferDate" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label><label>تاریخ شروع اثر<input name="effectiveFrom" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label><label>حقوق پایه ماهانه (تومان؛ خالی یعنی حفظ فعلی)<input name="baseSalary" type="number" min="0" step="1"></label><label>تاریخ پایان اثر (اختیاری)<input name="effectiveTo" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label></div><label class="toggle-row"><span><b>سمت مدیریتی / خارج از KPI فردی</b></span><input name="isManager" type="checkbox"></label><button class="primary-button">ثبت برای بازبینی مدیر</button></form></div>';
+orgView.innerHTML='<div class="page-heading"><div><p class="eyebrow">پنل ادمین</p><h1>مدیریت پرسنل</h1><p>عملیات موردنظر را انتخاب کنید؛ ثبت پرسنل، تغییر سمت، ساختار سازمانی یا تسویه.</p></div></div><div class="settings-grid"><form id="positionForm" class="panel settings-card"><h2>تغییر سمت یا جابجایی پرسنل</h2><label>پرسنل<select name="employeeId" id="positionEmployee" required></select></label><div class="form-grid"><label>عنوان شغل<input name="jobTitle" required></label><label>بخش<select name="sectionId" id="positionSection" required></select></label><label>سطح شغل<select name="jobLevel" required><option value="">انتخاب سطح</option><option>کارآموز</option><option>کارشناس</option><option>کارشناس ارشد</option><option>مسئول</option><option>سرپرست</option><option>مدیر</option></select></label><label>مدیر مقصد<select name="managerId" id="positionManager" required></select></label><label>واحد سازمانی<select name="unitId" id="positionUnit" required></select></label><input name="unitName" type="hidden"></div><label>شرح وظایف<textarea name="duties" rows="4" required></textarea></label><div class="form-grid"><label>تاریخ جابه‌جایی (شروع سمت جدید از همین روز)<input name="transferDate" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label><label>تاریخ شروع اثر<input name="effectiveFrom" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label><label>حقوق پایه ماهانه (تومان؛ خالی یعنی حفظ فعلی)<input name="baseSalary" type="number" min="0" step="1"></label><label>تاریخ پایان اثر (اختیاری)<input name="effectiveTo" type="text" inputmode="numeric" placeholder="۱۴۰۵/۰۷/۰۶" dir="ltr" title="تاریخ شمسی به صورت سال/ماه/روز"></label></div><label class="toggle-row"><span><b>سمت مدیریتی / خارج از KPI فردی</b></span><input name="isManager" type="checkbox"></label><button class="primary-button">ثبت برای بازبینی مدیر</button></form></div>';
 const onboarding=document.createElement('section');onboarding.className='panel settings-card lifecycle-section';onboarding.innerHTML='<h2>ثبت پرسنل جدید</h2><form id="personCreateForm"><div class="form-grid"><label>نام و نام خانوادگی<input name="name" required></label><label>عنوان شغل<input name="jobTitle" required></label><label>واحد سازمانی<select name="unitId" id="newPersonUnit" required></select></label><label>بخش<select name="sectionId" id="newPersonSection" required></select></label><label>سطح شغل<select name="jobLevel" required><option value="">انتخاب سطح</option><option>کارآموز</option><option>کارشناس</option><option>کارشناس ارشد</option><option>مسئول</option><option>سرپرست</option><option>مدیر</option></select></label><label>شخص مافوق<select name="managerId" id="newPersonManager" required></select></label><input name="unitName" type="hidden"><label>حقوق پایه ماهانه (تومان)<input name="baseSalary" type="number" min="0" step="1" required aria-describedby="newPersonSalaryWords"><small id="newPersonSalaryWords" class="salary-words" role="status" aria-live="polite"></small></label><label>تاریخ شروع به کار<span class="person-start-date"><input id="newPersonStart" name="effectiveFrom" type="text" placeholder="انتخاب تاریخ" dir="ltr" readonly required><svg aria-hidden="true"><use href="#i-calendar"/></svg></span></label></div><label>شرح وظایف<textarea name="duties" rows="3" required></textarea></label><button class="primary-button">ایجاد حساب و ارسال سمت برای تصویب</button><p class="formula-note">حساب جدید در محیط فعلی نمونه است؛ ورود سازمانی و هویت واقعی هنوز متصل نیست. سمت نیز تا تأیید مدیر مقصد و ادمین فعال نمی‌شود.</p></form>';
   const hrOverview=document.createElement('section');hrOverview.className='hr-overview';hrOverview.id='hrOverview';hrOverview.setAttribute('aria-label','خلاصهٔ درخواست‌های ورودی ادمین');incomingView.querySelector('.page-heading').after(hrOverview);
   hrOverview.innerHTML=`<article class="panel"><span>سمت در انتظار تصویب</span><strong data-incoming-count="position">—</strong><small>نیازمند تصمیم ادمین</small></article>
@@ -322,19 +322,20 @@ const onboarding=document.createElement('section');onboarding.className='panel s
   onboarding.querySelector('.form-grid').insertAdjacentHTML('afterbegin','<label>نوع دسترسی<select name="role" id="newPersonRole"><option value="personnel">پرسنلی</option><option value="manager">مدیر</option></select></label><label>شماره تماس<input name="phone" type="tel" maxlength="30" autocomplete="tel"></label><label>کد پرسنلی<input name="employeeCode" maxlength="60"></label>');
   orgView.append(onboarding);
   let settlementData={people:[],settlements:[]};
-  const operationSelector=document.createElement('label');operationSelector.className='personnel-operation-selector';operationSelector.innerHTML='<span>نوع عملیات پرسنلی</span><select id="personnelOperation"><option value="transfer">جابجایی پرسنل</option><option value="settlement">تسویه پرسنل</option></select>';orgView.querySelector('.settings-grid').before(operationSelector);
+  const settlementPickers=[];
+  const operationSelector=document.createElement('label');operationSelector.className='personnel-operation-selector';operationSelector.hidden=true;operationSelector.innerHTML='<span>نوع عملیات پرسنلی</span><select id="personnelOperation"><option value="transfer">جابجایی پرسنل</option><option value="settlement">تسویه پرسنل</option></select>';orgView.querySelector('.settings-grid').before(operationSelector);
   $('#positionForm h2').textContent='جابجایی';
   $('#positionForm h2').insertAdjacentHTML('afterend','<p class="workflow-muted">سمت جدید از خودِ تاریخ جابه‌جایی شروع می‌شود. تأیید نهایی ادمین فقط پس از تکمیل همهٔ امتیازهای قبلی و تأیید مبلغ قطعی آن بازه امکان‌پذیر است؛ شاخص‌های جدید جدا تعریف می‌شوند.</p>');
   const settlementForm=document.createElement('form');settlementForm.id='settlementForm';settlementForm.className='panel settings-card';settlementForm.hidden=true;
   settlementForm.innerHTML='<h2>تسویه</h2><p class="workflow-muted">نام یا کد پرسنلی را انتخاب کنید؛ مورد دیگر خودکار تکمیل می‌شود. پس از تکمیل امتیازها، حقوق مبنا و مبلغ KPI تا پایان روز تسویه محاسبه و بسته می‌شوند. سوابق قبلی حفظ می‌شوند.</p><input name="employeeId" type="hidden"><div class="form-grid"><label>نام و نام خانوادگی<input name="employeeName" id="settlementName" list="settlementNames" autocomplete="off" maxlength="200" required><datalist id="settlementNames"></datalist></label><label>کد پرسنلی<input name="employeeCode" id="settlementCode" list="settlementCodes" autocomplete="off" maxlength="60" dir="ltr"><datalist id="settlementCodes"></datalist></label><label>تاریخ تسویه<span class="person-start-date"><input name="settlementDate" id="settlementDate" type="text" dir="ltr" readonly required placeholder="انتخاب تاریخ"><svg aria-hidden="true"><use href="#i-calendar"/></svg></span></label></div><button class="primary-button">پیش‌نمایش و ثبت تسویه</button><p class="formula-note">پیش از ثبت، مبلغ بازه‌های باز را بررسی کنید. تسویهٔ آینده مجاز نیست؛ این عملیات پرداخت بانکی یا محاسبهٔ سایر اقلام پایان همکاری نیست.</p><section class="lifecycle-section"><h3>تسویه‌های ثبت‌شده</h3><div id="settlementHistory"></div></section>';
   $('#positionForm').after(settlementForm);
   window.PanelDatePicker.attach($('#settlementDate'),{id:'personnel-settlement-calendar',canOpen:()=>user?.role==='hr'&&!activeWrites&&!settlementForm.hidden&&orgView.classList.contains('active')});
-  function syncPersonnelOperation(){const exit=$('#personnelOperation').value==='settlement';$('#positionForm').hidden=exit;settlementForm.hidden=!exit;}
+  function syncPersonnelOperation(){selectPersonnelSection($('#personnelOperation').value);}
   $('#personnelOperation').addEventListener('change',syncPersonnelOperation);
   const normalizeSettlementCode=value=>String(value).trim().replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632));
   const normalizeSettlementName=value=>String(value).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\s\u200c]+/g,' ').trim();
   function availableSettlementPeople(){return settlementData.people.filter(p=>!p.settlementDate);}
-  function resetSettlementForm(){settlementForm.reset();settlementForm.elements.employeeId.value='';for(const key of ['employeeName','employeeCode'])settlementForm.elements[key].setCustomValidity('');}
+  function resetSettlementForm(){settlementPickers.forEach(picker=>picker.close());settlementForm.reset();settlementForm.elements.employeeId.value='';for(const key of ['employeeName','employeeCode'])settlementForm.elements[key].setCustomValidity('');}
   function settlementNameLabel(person){return availableSettlementPeople().filter(p=>normalizeSettlementName(p.name)===normalizeSettlementName(person.name)).length>1?person.name+' · '+(person.employeeCode||person.id):person.name;}
   function syncSettlementIdentity(source){
     const form=settlementForm,people=availableSettlementPeople(),value=form.elements[source].value;
@@ -345,9 +346,86 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     form.elements[source==='employeeCode'?'employeeName':'employeeCode'].setCustomValidity('');
   }
   for(const source of ['employeeName','employeeCode'])settlementForm.elements[source].addEventListener('input',()=>syncSettlementIdentity(source));
+  function createSettlementPicker(source){
+    const input=settlementForm.elements[source],listId=input.getAttribute('list');
+    $('#'+listId).remove();input.removeAttribute('list');
+    input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');
+    input.setAttribute('aria-haspopup','listbox');input.setAttribute('aria-expanded','false');
+    input.setAttribute('aria-controls',listId);input.setAttribute('aria-label',source==='employeeName'?'نام و نام خانوادگی پرسنل':'کد پرسنلی');input.spellcheck=false;
+    input.placeholder=source==='employeeName'?'جست‌وجو و انتخاب پرسنل':'جست‌وجو و انتخاب کد پرسنلی';
+    const wrapper=document.createElement('span');wrapper.className='settlement-picker';
+    input.before(wrapper);wrapper.append(input);
+    wrapper.insertAdjacentHTML('beforeend','<svg class="settlement-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>');
+    const list=document.createElement('div');list.id=listId;list.className='settlement-picker-menu';
+    list.setAttribute('role','listbox');list.setAttribute('aria-label',source==='employeeName'?'انتخاب نام پرسنل':'انتخاب کد پرسنلی');
+    list.hidden=true;wrapper.append(list);
+    let rows=[],activeIndex=-1,showAll=false;
+    function close(){list.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');activeIndex=-1;rows=[];list.replaceChildren();}
+    function setActive(index){
+      activeIndex=index;
+      for(const [i,option] of [...list.querySelectorAll('[data-picker-index]')].entries())option.setAttribute('aria-selected',String(i===index));
+      const option=list.querySelector('[data-picker-index="'+index+'"]');
+      if(option){input.setAttribute('aria-activedescendant',option.id);option.scrollIntoView({block:'nearest'});}
+      else input.removeAttribute('aria-activedescendant');
+    }
+    function positionMenu(){
+      const rect=input.getBoundingClientRect(),below=innerHeight-rect.bottom-12;
+      const topLimit=Math.max($('.topbar')?.getBoundingClientRect().bottom||0,personnelTabs.getBoundingClientRect().bottom)+12;
+      if(rect.bottom<=topLimit||rect.top>=innerHeight)return false;
+      const above=rect.top-topLimit;
+      list.dataset.side=below<200&&above>below?'above':'below';
+      list.style.maxHeight=Math.max(80,Math.min(280,list.dataset.side==='above'?above:below))+'px';
+      return true;
+    }
+    function render(all=showAll){
+      if(input.disabled||user?.role!=='hr'||settlementForm.hidden||!orgView.classList.contains('active'))return close();
+      showAll=all;
+      const query=all?'':normalizeSettlementName(normalizeSettlementCode(input.value)).toLocaleLowerCase('fa-IR');
+      rows=availableSettlementPeople().filter(person=>{
+        if(source==='employeeCode'&&!person.employeeCode)return false;
+        const search=normalizeSettlementName(person.name+' '+normalizeSettlementCode(person.employeeCode||'')).toLocaleLowerCase('fa-IR');
+        return search.includes(query);
+      });
+      list.innerHTML=rows.length?rows.map((person,index)=>'<div role="option" tabindex="-1" aria-selected="false" id="'+input.id+'-option-'+index+'" data-picker-index="'+index+'"><span>'+esc(person.name)+'</span><small>کد پرسنلی <bdi>'+esc(person.employeeCode||'ثبت نشده')+'</bdi></small></div>').join(''):'<div class="settlement-picker-empty" role="option" aria-disabled="true">پرسنلی با این مشخصات پیدا نشد.</div>';
+      if(!positionMenu())return close();
+      list.hidden=false;input.setAttribute('aria-expanded','true');activeIndex=-1;input.removeAttribute('aria-activedescendant');
+    }
+    function choose(index){
+      const person=rows[index];if(!person)return;
+      input.value=source==='employeeName'?settlementNameLabel(person):person.employeeCode;
+      syncSettlementIdentity(source);input.dispatchEvent(new Event('change',{bubbles:true}));
+      input.focus({preventScroll:true});close();
+    }
+    const open=()=>{
+      settlementPickers.forEach(picker=>picker.close());
+      const minimumTop=Math.max($('.topbar')?.getBoundingClientRect().bottom||0,personnelTabs.getBoundingClientRect().bottom)+12;
+      const top=input.getBoundingClientRect().top;
+      if(top<minimumTop)window.scrollBy({top:top-minimumTop,behavior:'instant'});
+      render(true);
+    };
+    input.addEventListener('focus',open);input.addEventListener('click',()=>{if(list.hidden)open();});
+    input.addEventListener('input',()=>render(false));
+    input.addEventListener('keydown',event=>{
+      if(['ArrowDown','ArrowUp'].includes(event.key)){
+        event.preventDefault();if(list.hidden)open();if(!rows.length)return;
+        setActive(activeIndex<0?(event.key==='ArrowDown'?0:rows.length-1):Math.max(0,Math.min(rows.length-1,activeIndex+(event.key==='ArrowDown'?1:-1))));
+      }else if(event.key==='Enter'&&!list.hidden){event.preventDefault();if(activeIndex>=0)choose(activeIndex);}
+      else if(event.key==='Escape'&&!list.hidden){event.preventDefault();event.stopPropagation();close();}
+      else if(event.key==='Tab')close();
+    });
+    list.addEventListener('mousedown',event=>event.preventDefault());
+    list.addEventListener('click',event=>{const option=event.target.closest('[data-picker-index]');if(option){event.preventDefault();choose(Number(option.dataset.pickerIndex));}});
+    document.addEventListener('pointerdown',event=>{if(!wrapper.contains(event.target))close();});
+    wrapper.addEventListener('focusout',event=>{if(!wrapper.contains(event.relatedTarget))close();});
+    window.addEventListener('resize',close);
+    window.addEventListener('scroll',event=>{if(!list.hidden&&!list.contains(event.target)&&!positionMenu())close();},true);
+    window.addEventListener('panel:session',close);window.addEventListener('panel:view',close);
+    return {close,refresh(){if(!list.hidden)render();}};
+  }
+  for(const source of ['employeeName','employeeCode'])settlementPickers.push(createSettlementPicker(source));
   function renderSettlements(){
     if(user?.role!=='hr')return;
-    const people=availableSettlementPeople();$('#settlementNames').innerHTML=people.map(p=>`<option value="${esc(settlementNameLabel(p))}">${esc(p.employeeCode||'')}</option>`).join('');$('#settlementCodes').innerHTML=people.filter(p=>p.employeeCode).map(p=>`<option value="${esc(p.employeeCode)}">${esc(p.name)}</option>`).join('');
+    const people=availableSettlementPeople();settlementPickers.forEach(picker=>picker.refresh());
     if(settlementForm.elements.employeeId.value&&!people.some(p=>p.id===settlementForm.elements.employeeId.value))resetSettlementForm();
     $('#settlementHistory').innerHTML=table(['پرسنل','کد پرسنلی','تاریخ تسویه','وضعیت'],settlementData.settlements.map(row=>`<tr><td>${esc(row.employeeName)}</td><td dir="ltr">${esc(row.employeeCode||'—')}</td><td>${esc(window.PanelDate.input(row.settlementDate))}</td><td>${row.status==='effective'?'خارج از فرایند KPI':'از تاریخ تسویه اعمال می‌شود'}</td></tr>`).join(''),'تسویه‌ای ثبت نشده است.');
   }
@@ -366,7 +444,32 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     const note=form.querySelector(':scope > .workflow-muted');if(note)note.textContent=manager?'مدیر به واحد سازمانی متصل می‌شود و خارج از ارزیابی KPI فردی است.':'مدل ارزیابی و مؤلفهٔ پروژه براساس واحد و تاریخ شروع اثر به‌صورت خودکار تعیین می‌شوند؛ در نبود مدل اختصاصی واحد، مدل عمومی سازمان اعمال می‌شود.';
     updateNewPersonSalaryWords();
   }
-  function updateNewPersonSalaryWords(){const field=$('#personCreateForm')?.elements.baseSalary,output=$('#newPersonSalaryWords');if(output&&field)output.textContent=field.disabled?'':window.PanelMoneyWords?.(field.value)||'';}
+  const asciiDigits=value=>String(value).replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632));
+  const persianDigits=value=>String(value).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+  const salaryDigits=value=>asciiDigits(value).replace(/[,٬\s]/g,'');
+  const newPersonSalary=$('#personCreateForm').elements.baseSalary;
+  newPersonSalary.type='text';newPersonSalary.inputMode='numeric';newPersonSalary.dir='rtl';
+  newPersonSalary.removeAttribute('min');newPersonSalary.removeAttribute('step');
+  newPersonSalary.maxLength=25;
+  function updateNewPersonSalaryWords(){
+    const field=newPersonSalary,output=$('#newPersonSalaryWords'),raw=salaryDigits(field.value);
+    const valid=!raw||/^\d+$/.test(raw)&&Number.isSafeInteger(Number(raw));
+    field.setCustomValidity(valid?'':'مبلغ حقوق باید عدد صحیح و نامنفی باشد.');
+    if(valid&&raw){
+      const caret=field.selectionStart,digitsBefore=caret==null?0:asciiDigits(field.value.slice(0,caret)).replace(/\D/g,'').length;
+      const formatted=fa.format(Number(raw));
+      if(field.value!==formatted){
+        field.value=formatted;
+        if(document.activeElement===field&&caret!=null){let index=0,count=0;while(index<formatted.length&&count<digitsBefore){if(/[۰-۹0-9]/.test(formatted[index]))count++;index++;}field.setSelectionRange(index,index);}
+      }
+    }
+    if(output)output.textContent=field.disabled?'':window.PanelMoneyWords?.(raw)||'';
+  }
+  const newPersonPhone=$('#personCreateForm').elements.phone;
+  newPersonPhone.maxLength=11;newPersonPhone.minLength=11;newPersonPhone.inputMode='numeric';
+  newPersonPhone.pattern='[0-9۰-۹٠-٩]{11}';newPersonPhone.placeholder='۰۹۱۲۳۴۵۶۷۸۹';
+  newPersonPhone.title='شماره موبایل باید دقیقاً ۱۱ رقم باشد.';
+
   // The role select is inserted above with insertAdjacentHTML before onboarding is attached.
   onboarding.querySelector('#newPersonRole')?.addEventListener('change',syncNewPersonRole);onboarding.querySelector('[name="baseSalary"]')?.addEventListener('input',updateNewPersonSalaryWords);syncNewPersonRole();
   window.PanelDatePicker?.attach($('#newPersonStart'),{id:'new-person-start-calendar',canOpen:()=>user?.role==='hr'&&!activeWrites&&orgView.classList.contains('active')});
@@ -377,6 +480,83 @@ const onboarding=document.createElement('section');onboarding.className='panel s
   for(const form of [$('#positionForm'),$('#personCreateForm')]){const note=document.createElement('p');note.className='workflow-muted';note.textContent='مدل ارزیابی و مؤلفهٔ پروژه براساس واحد و تاریخ شروع اثر به‌صورت خودکار تعیین می‌شوند؛ در نبود مدل اختصاصی واحد، مدل عمومی سازمان اعمال می‌شود.';form.prepend(note);}
   const unitPanel=document.createElement('section');unitPanel.className='panel settings-card lifecycle-section';unitPanel.innerHTML='<h2>واحدهای سازمانی</h2><p class="workflow-muted">واحدهای سازمانی را ثبت کنید تا در تعریف بخش و اطلاعات پرسنل انتخاب شوند.</p><form id="unitForm" class="form-grid organization-entry-form"><label>شناسهٔ واحد<input name="id" required maxlength="80"></label><label>نام واحد<input name="name" required maxlength="120"></label><button class="primary-button">ثبت واحد</button></form><div id="unitList"></div>';orgView.insertBefore(unitPanel,onboarding);
   const sectionPanel=document.createElement('section');sectionPanel.className='panel settings-card lifecycle-section';sectionPanel.innerHTML='<h2>بخش‌های سازمانی</h2><p class="workflow-muted">شناسهٔ بخش خودکار ساخته می‌شود. هر بخش به یک واحد وابسته است و برای پرسنل انتخاب می‌شود.</p><form id="sectionForm" class="form-grid organization-entry-form"><label>نام بخش<input name="name" required maxlength="120"></label><label class="organization-entry-parent">واحد<select name="unitId" id="sectionUnit" required></select></label><button class="primary-button">ثبت بخش</button></form><div id="sectionList"></div>';orgView.insertBefore(sectionPanel,onboarding);const structureGrid=document.createElement('div');structureGrid.className='organization-structure-grid';orgView.insertBefore(structureGrid,unitPanel);structureGrid.append(unitPanel,sectionPanel);
+  const personnelSections=[
+    {id:'onboarding',title:'ثبت پرسنل',description:'افزودن فرد و تعریف سمت اولیه',icon:'i-person',content:onboarding},
+    {id:'transfer',title:'جابه‌جایی و تغییر سمت',description:'تغییر شغل، واحد یا مدیر',icon:'i-org-chart',content:$('#positionForm')},
+    {id:'structure',title:'واحدها و بخش‌ها',description:'تعریف ساختار سازمانی',icon:'i-layers',content:structureGrid},
+    {id:'settlement',title:'تسویه پرسنل',description:'پایان همکاری و بستن بازهٔ مالی',icon:'i-wallet',content:settlementForm}
+  ];
+  const personnelWorkspace=document.createElement('div');
+  personnelWorkspace.className='personnel-workspace';
+  const personnelTabs=document.createElement('div');
+  personnelTabs.className='personnel-workflow-tabs';
+  personnelTabs.setAttribute('role','tablist');
+  personnelTabs.setAttribute('aria-label','بخش‌های مدیریت پرسنل');
+  personnelTabs.innerHTML=personnelSections.map(section=>`<button type="button" role="tab" id="personnel-tab-${section.id}" aria-controls="personnel-panel-${section.id}" aria-selected="false" tabindex="-1" data-personnel-section="${section.id}"><svg aria-hidden="true"><use href="#${section.icon}"/></svg><span><strong>${section.title}</strong><small>${section.description}</small></span></button>`).join('');
+  orgView.querySelector('.page-heading').after(personnelTabs);
+  orgView.append(personnelWorkspace);
+  const previousTransferGrid=orgView.querySelector('.settings-grid');
+  for(const section of personnelSections){
+    const panel=document.createElement('section');
+    panel.id='personnel-panel-'+section.id;panel.className='personnel-workflow-panel';
+    panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','personnel-tab-'+section.id);
+    panel.hidden=true;panel.append(section.content);personnelWorkspace.append(panel);
+    section.panel=panel;
+  }
+  previousTransferGrid.remove();
+  function selectPersonnelSection(id){
+    if(!personnelSections.some(section=>section.id===id))return;
+    if(id!=='settlement')settlementPickers.forEach(picker=>picker.close());
+    for(const section of personnelSections){
+      const selected=section.id===id,tab=$('#personnel-tab-'+section.id);
+      section.panel.hidden=!selected;
+      tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;
+    }
+    $('#positionForm').hidden=id!=='transfer';settlementForm.hidden=id!=='settlement';
+    if(['transfer','settlement'].includes(id))$('#personnelOperation').value=id;
+  }
+  personnelTabs.addEventListener('click',event=>{
+    const tab=event.target.closest('[role="tab"]');
+    if(tab){
+      selectPersonnelSection(tab.dataset.personnelSection);
+      const contentTop=personnelWorkspace.getBoundingClientRect().top+window.scrollY;
+      const tabTop=contentTop-personnelTabs.offsetHeight-20-parseFloat(personnelTabs.style.top);
+      if(window.scrollY>tabTop+10)window.scrollTo({top:Math.max(0,tabTop),behavior:'instant'});
+    }
+  });
+  personnelTabs.addEventListener('keydown',event=>{
+    const tab=event.target.closest('[role="tab"]');
+    if(tab&&['Enter',' '].includes(event.key)){event.preventDefault();tab.click();return;}
+    if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const tabs=[...personnelTabs.querySelectorAll('[role="tab"]')],index=tabs.indexOf(tab);
+    const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowLeft'?1:-1)+tabs.length)%tabs.length;
+    tabs.forEach((button,i)=>{button.tabIndex=i===next?0:-1;});
+    tabs[next].focus();
+  });
+  personnelTabs.addEventListener('focusout',event=>{
+    if(personnelTabs.contains(event.relatedTarget))return;
+    for(const tab of personnelTabs.querySelectorAll('[role="tab"]'))tab.tabIndex=tab.getAttribute('aria-selected')==='true'?0:-1;
+  });
+  const personForm=$('#personCreateForm'),personGrid=personForm.querySelector('.form-grid');
+  const identityGroup=document.createElement('fieldset');identityGroup.className='personnel-form-group';
+  identityGroup.innerHTML='<legend>مشخصات فرد و دسترسی</legend><div class="form-grid"></div>';
+  personGrid.before(identityGroup);
+  for(const name of ['name','employeeCode','phone','role'])identityGroup.querySelector('.form-grid').append(personForm.elements[name].closest('label'));
+  const jobGroup=document.createElement('fieldset');jobGroup.className='personnel-form-group';jobGroup.innerHTML='<legend>اطلاعات شغل و شروع همکاری</legend>';
+  personGrid.before(jobGroup);jobGroup.append(personGrid);
+  const transferHeading=$('#positionForm h2'),transferModelNote=$('#positionForm > .workflow-muted');
+  transferHeading.nextElementSibling.after(transferModelNote);
+  const positionGroups=$('#positionForm').querySelectorAll(':scope > .form-grid');
+  ['سمت و ساختار مقصد','تاریخ اثر و حقوق پایه'].forEach((title,index)=>{
+    const group=document.createElement('fieldset');group.className='personnel-form-group';
+    const legend=document.createElement('legend');legend.textContent=title;group.append(legend);
+    positionGroups[index].before(group);group.append(positionGroups[index]);
+  });
+  function updatePersonnelTabsOffset(){personnelTabs.style.top=(($('.topbar')?.offsetHeight||70)+10)+'px';}
+  window.addEventListener('resize',updatePersonnelTabsOffset);updatePersonnelTabsOffset();
+  if(window.ResizeObserver)new ResizeObserver(updatePersonnelTabsOffset).observe($('.topbar'));
+  selectPersonnelSection('onboarding');
   const peopleImport=document.createElement('section');peopleImport.id='personnelImportPanel';peopleImport.className='panel settings-card lifecycle-section';peopleImport.innerHTML='<h2>ورود گروهی پرسنل با اکسل</h2><p class="workflow-muted">فایل XLSX را مطابق قالب نمونه پر کنید. کد پرسنلی و شناسهٔ واحد/بخش باید معتبر باشند؛ برای پرسنل، کد مافوق باید از قبل در سامانه ثبت شده باشد. ابتدا پیش‌نمایش و خطاهای سطرها را بررسی کنید و سپس ثبت را تأیید کنید.</p><p class="formula-note">این ابزار برای ثبت پرسنل جدید همراه شرح وظایف است؛ کد تکراری ثبت نمی‌شود و اطلاعات افراد موجود بازنویسی نمی‌شود. سمت پرسنل پس از تأیید مدیر مقصد و ادمین فعال می‌شود.</p><div class="design-form-actions"><button type="button" class="secondary-button" id="downloadPersonnelTemplate">دریافت قالب اکسل</button></div><form id="personImportForm"><label>فایل پرسنل (XLSX، حداکثر ۲ مگابایت و ۱۰۰ سطر)<input name="file" type="file" accept=".xlsx" required></label><button class="primary-button">بررسی و پیش‌نمایش اکسل</button> <button type="button" id="cancelPersonnelImport" class="secondary-button" hidden>لغو ثبت</button></form><div id="personImportResult" role="status" aria-live="polite"></div>';updatesView.querySelector('.page-heading').after(peopleImport);
   window.addEventListener('panel:view',event=>{if(['updates','duties'].includes(event.detail)&&user?.role==='hr')$('#view-'+event.detail+' .page-heading').after(peopleImport);});
   const dataView=makeView('data','آزمون فصلی پرسنل','i-file',roleViews.data);
@@ -477,7 +657,7 @@ const onboarding=document.createElement('section');onboarding.className='panel s
     closeSidebarFlyout();
     if(user?.id!==next?.id){$('#examExcelForm').reset();$('#examExcelResult').replaceChildren();}
     if(user?.id!==next?.id){$('#appealFiles').value='';syncAppealFileNames();}
-    if(user?.id!==next?.id){settlementData={people:[],settlements:[]};resetSettlementForm();for(const id of ['settlementNames','settlementCodes','settlementHistory'])$('#'+id).replaceChildren();$('#personnelOperation').value='transfer';syncPersonnelOperation();}
+    if(user?.id!==next?.id){settlementData={people:[],settlements:[]};resetSettlementForm();for(const id of ['settlementNames','settlementCodes','settlementHistory'])$('#'+id).replaceChildren();$('#personnelOperation').value='transfer';selectPersonnelSection('onboarding');}
     if(user?.id!==next?.id){$('#positionHistoryFilters').reset();$('#positionHistoryShowHidden').checked=false;$('#positionHistoryCount').textContent='';$('#positionList').replaceChildren();}
     if(user?.id!==next?.id){quarterFilters.reset();quarterFilters.hidden=true;$('#quarterUnitFilter').innerHTML='<option value="all">همهٔ واحدها</option>';$('#quarterResultCount').textContent='';}
     if(user?.id!==next?.id)renewExamBatchKey();
@@ -546,9 +726,19 @@ function camelView(id){return {'case-review':'caseReview','manager-dashboard':'m
   }
   function populateSelect(select,rows,empty){if(!select)return;select.innerHTML=rows.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.unitName||'')}</option>`).join('')||`<option value="">${esc(empty)}</option>`;}
   function fillUnitSelect(select,selected){if(!select)return;select.innerHTML='<option value="">انتخاب واحد</option>'+orgUnits.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join('');select.value=selected&&orgUnits.some(row=>row.id===selected)?selected:'';}
+  function canonicalSectionChoices(rows){
+    const groups=new Map();
+    for(const row of [...rows].sort((a,b)=>a.id.localeCompare(b.id))){
+      const key=JSON.stringify([row.unitId,normalizeSettlementName(row.name)]);
+      const current=groups.get(key),aliases=[row.id,...(row.aliasIds||[])];
+      if(current){current.aliasIds.push(...aliases);if(row.deletion?.allowed===false)current.deletion=row.deletion;}
+      else groups.set(key,{...row,aliasIds:aliases.filter(id=>id!==row.id)});
+    }
+    return [...groups.values()];
+  }
   function syncOrgForm(form,{unitId=form.elements.unitId.value,sectionId=form.elements.sectionId.value,managerId=form.elements.managerId.value}={}){
     fillUnitSelect(form.elements.unitId,unitId);const unit=orgUnits.find(row=>row.id===form.elements.unitId.value);form.elements.unitName.value=unit?.name||'';
-    const sections=orgSections.filter(row=>row.unitId===unit?.id);form.elements.sectionId.innerHTML='<option value="">انتخاب بخش</option>'+sections.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join('');form.elements.sectionId.value=sections.some(row=>row.id===sectionId)?sectionId:'';
+    const sections=orgSections.filter(row=>row.unitId===unit?.id);form.elements.sectionId.innerHTML='<option value="">انتخاب بخش</option>'+sections.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join('');form.elements.sectionId.value=sections.find(row=>row.id===sectionId||row.aliasIds?.includes(sectionId))?.id||'';
     const candidates=accounts().filter(row=>row.role==='manager'&&!row.isSettled&&row.unitId===unit?.id&&row.id!==form.elements.employeeId?.value);populateSelect(form.elements.managerId,candidates,'مدیر مجاز در این واحد ثبت نشده است.');if(candidates.some(row=>row.id===managerId))form.elements.managerId.value=managerId;
     if(form.getAttribute('id')==='personCreateForm')syncNewPersonRole();
   }
@@ -594,7 +784,7 @@ function camelView(id){return {'case-review':'caseReview','manager-dashboard':'m
       if(['hr','manager'].includes(role))aiCapabilities=result.pop();
       evaluationModelsData=result.pop();orgChart=result.pop();quarterRows=result.pop();syncDesignModel();
       if(role==='manager'){[designs,positionRequests,campaigns,deadlines,appeals,managerRequestsData]=result;renderTasks();renderPositionRequests();}
-      if(role==='hr'){[positions,orgUnits,orgSections,designs,evaluations,appeals,campaigns,examImports,deadlines,evaluationSettingsData,settlementData]=result;renderOrganization();renderSettlements();renderUpdates();renderDuties();renderIncoming(!selected,requestedAt);renderTasks();renderData();renderEvaluationSettings();}
+      if(role==='hr'){[positions,orgUnits,orgSections,designs,evaluations,appeals,campaigns,examImports,deadlines,evaluationSettingsData,settlementData]=result;orgSections=canonicalSectionChoices(orgSections);renderOrganization();renderSettlements();renderUpdates();renderDuties();renderIncoming(!selected,requestedAt);renderTasks();renderData();renderEvaluationSettings();}
       if(role==='personnel')[campaigns,appeals]=result;
       syncDesignModel();renderSurvey();renderAppeals();renderQuarters();fillCommonPeriods();renderChart();renderManagerPersonnel();if(role==='hr')renderQuarterInbox();
     }catch(error){if(!stale())throw error;}
@@ -1564,7 +1754,7 @@ const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.peo
   };
   document.addEventListener('click',async event=>{const action=event.target.closest('[data-approve-position-row]');if(!action||action.disabled)return;action.disabled=true;activeWrites++;try{await approvePositionWithCloseout(action.dataset.approvePositionRow);await window.PanelWorkflow.refresh();}catch(error){message(error.message,true);}finally{activeWrites--;if(action.isConnected)action.disabled=false;}});
   $('#positionForm').onsubmit=async event=>{event.preventDefault();const form=event.target,data=Object.fromEntries(new FormData(form));data.isManager=form.elements.isManager.checked;data.isKpiEligible=!data.isManager;if(!data.baseSalary)data.baseSalary=null;if(!data.effectiveTo)data.effectiveTo=null;try{for(const key of ['transferDate','effectiveFrom','effectiveTo']){data[key]=window.PanelDate.toGregorian(data[key],key!=='effectiveFrom');if(key!=='effectiveFrom'&&!data[key])data[key]=null;}if(form.dataset.revision){await post(`/api/org/positions/${form.dataset.revision}/revision`,data);delete form.dataset.revision;}else await post('/api/org/positions',data);form.reset();form.elements.effectiveFrom.value=window.PanelDate.today();message('پیشنهاد سمت برای بازبینی مدیر مقصد ارسال شد.');await refresh();}catch(error){message(error.message,true);}};
-  $('#personCreateForm').onsubmit=async event=>{event.preventDefault();const form=event.target,data=Object.fromEntries(new FormData(form));try{data.isManager=data.role==='manager'||form.elements.isManager.checked;data.isKpiEligible=!data.isManager;if(data.role==='manager'){for(const key of ['sectionId','duties','baseSalary','managerId'])delete data[key];}else{if(!String(data.baseSalary??'').trim())throw new Error('حقوق پایه را وارد کنید.');data.baseSalary=Number(data.baseSalary);}data.effectiveFrom=window.PanelDate.toGregorian(data.effectiveFrom);const result=await post('/api/org/people',data);const list=window.PanelWorkflow.accounts;if(!list.some(a=>a.id===result.employee.id))list.push(result.employee);form.reset();syncNewPersonRole();form.elements.effectiveFrom.value=window.PanelDate.today();applySession(user);message('حساب نمونه ساخته شد و ساختار سازمانی به‌روز شد.');await refresh();}catch(error){message(error.message,true);}};
+  $('#personCreateForm').onsubmit=async event=>{event.preventDefault();const form=event.target,data=Object.fromEntries(new FormData(form));try{data.isManager=data.role==='manager'||form.elements.isManager.checked;data.isKpiEligible=!data.isManager;if(data.role==='manager'){for(const key of ['sectionId','duties','baseSalary','managerId'])delete data[key];}else{if(!String(data.baseSalary??'').trim())throw new Error('حقوق پایه را وارد کنید.');data.baseSalary=Number(salaryDigits(data.baseSalary));}data.phone=asciiDigits(data.phone||'');data.effectiveFrom=window.PanelDate.toGregorian(data.effectiveFrom);const result=await post('/api/org/people',data);const list=window.PanelWorkflow.accounts;if(!list.some(a=>a.id===result.employee.id))list.push(result.employee);form.reset();syncNewPersonRole();form.elements.effectiveFrom.value=persianDigits(window.PanelDate.today());applySession(user);message('حساب نمونه ساخته شد و ساختار سازمانی به‌روز شد.');await refresh();}catch(error){message(error.message,true);}};
   $('#unitForm').onsubmit=async event=>{event.preventDefault();try{await post('/api/org/units',Object.fromEntries(new FormData(event.target)));event.target.reset();await refresh();message('واحد سازمانی ثبت شد.');}catch(error){message(error.message,true);}};
   $('#sectionForm').onsubmit=async event=>{event.preventDefault();try{await post('/api/org/sections',Object.fromEntries(new FormData(event.target)));event.target.reset();await refresh();message('بخش سازمانی ثبت شد.');}catch(error){message(error.message,true);}};
   const personnelColumns=['نام و نام خانوادگی','کد پرسنلی','نوع دسترسی','شناسه واحد','شناسه بخش','سطح شغل','عنوان شغل','کد پرسنلی مافوق','حقوق پایه ماهانه','دارای پروژه','شرح وظایف','تاریخ شروع شمسی','شماره تماس'];
@@ -1582,7 +1772,7 @@ const self=orgChart.people.find(person=>person.id===user.id),parent=orgChart.peo
   function personnelFromExcel(row,index,seen){
 const get=position=>String(row[position]??'').trim(),name=get(0),employeeCode=get(1),roleName=get(2),role=['مدیر','مدیر واحد'].includes(roleName)?'manager':roleName==='پرسنلی'?'personnel':null,unitId=get(3),sectionId=get(4),jobLevel=get(5),jobTitle=get(6),managerCode=get(7),salary=get(8),hasProjects=role==='manager'?false:importBool(get(9),'دارای پروژه'),duties=get(10),shamsiDate=get(11),phone=get(12);
     if(!name||!employeeCode||!role||!unitId||!jobLevel||!jobTitle||!shamsiDate||(role==='personnel'&&(!sectionId||!duties)))throw new Error('فیلدهای ضروری سطر کامل نیستند.');if(seen.has(employeeCode)||orgChart?.people.some(person=>person.employeeCode===employeeCode))throw new Error('کد پرسنلی تکراری است.');seen.add(employeeCode);
-    const unit=orgUnits.find(item=>item.id===unitId),section=role==='manager'?null:orgSections.find(item=>item.id===sectionId&&item.unitId===unitId);if(!unit||(role==='personnel'&&!section))throw new Error('شناسهٔ واحد یا بخش با ساختار ثبت‌شده مطابقت ندارد.');
+    const unit=orgUnits.find(item=>item.id===unitId),section=role==='manager'?null:orgSections.find(item=>(item.id===sectionId||item.aliasIds?.includes(sectionId))&&item.unitId===unitId);if(!unit||(role==='personnel'&&!section))throw new Error('شناسهٔ واحد یا بخش با ساختار ثبت‌شده مطابقت ندارد.');
     if(!['کارآموز','کارشناس','کارشناس ارشد','مسئول','سرپرست','مدیر'].includes(jobLevel))throw new Error('سطح شغلی در فهرست مجاز نیست.');
     const baseSalary=role==='manager'?null:Number(salary);if(role==='personnel'&&(!salary||!Number.isSafeInteger(baseSalary)||baseSalary<0))throw new Error('حقوق پایه معتبر نیست.');
     const manager=orgChart?.people.find(person=>person.employeeCode===managerCode);if(role==='personnel'&&(!manager||manager.role!=='manager'||manager.isSettled||manager.unitId!==unitId))throw new Error('کد پرسنلی مافوق باید به مدیر مجاز همان واحد تعلق داشته باشد.');if(role==='manager'&&orgChart?.people.some(person=>person.role==='manager'&&person.unitId===unitId))throw new Error('این واحد از قبل مدیر دارد.');
@@ -1713,5 +1903,5 @@ const get=position=>String(row[position]??'').trim(),name=get(0),employeeCode=ge
   $('#workflowPeriod').addEventListener('change',()=>fillCommonPeriods(true));
 
   $('#positionForm [name="effectiveFrom"]').value=window.PanelDate.today();
-  $('#personCreateForm [name="effectiveFrom"]').value=window.PanelDate.today();
+  $('#personCreateForm [name="effectiveFrom"]').value=persianDigits(window.PanelDate.today());
 })();

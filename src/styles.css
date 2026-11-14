@@ -1510,3 +1510,75 @@ select option,select optgroup { background: var(--color-select-option); color: v
 @media(max-width:680px){.score-history-row{gap:10px;}.score-history-dialog .score-history-meta,.score-history-values{grid-template-columns:minmax(0,1fr);}.score-history-dialog .design-analysis-dialog-header,.score-history-dialog .design-analysis-dialog-body,.score-history-dialog .design-analysis-dialog-footer{padding-inline:16px;}}
 
 .brand-home{border:0;background:transparent;padding:0;cursor:pointer;color:inherit}.brand-home:focus-visible{outline:2px solid var(--accent,#1acba1);outline-offset:4px;border-radius:12px}
+
+/* Task navigation inside personnel management. */
+#view-organization .personnel-operation-selector[hidden],
+#view-organization .personnel-workflow-panel[hidden] { display:none !important; }
+.personnel-workflow-tabs {
+  position:sticky; z-index:12; display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px; padding:8px; margin:0 0 20px; border:1px solid var(--color-border);
+  border-radius:var(--radius-lg,16px); background:var(--color-popover-opaque);
+  box-shadow:0 6px 20px rgb(0 0 0 / .06);
+}
+.personnel-workflow-tabs [role="tab"] {
+  display:flex; align-items:center; gap:10px; min-width:0; min-height:76px;
+  padding:12px; border:1px solid transparent; border-radius:var(--radius-sm,10px);
+  background:transparent; color:var(--color-text-secondary); text-align:right; cursor:pointer;
+}
+.personnel-workflow-tabs [role="tab"] svg { flex:none; width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; }
+.personnel-workflow-tabs [role="tab"] span { display:grid; gap:5px; min-width:0; }
+.personnel-workflow-tabs [role="tab"] strong { color:var(--color-text); font-size:13px; line-height:1.6; }
+.personnel-workflow-tabs [role="tab"] small { color:inherit; font-size:11px; line-height:1.6; }
+.personnel-workflow-tabs [role="tab"]:hover { background:var(--color-input); }
+.personnel-workflow-tabs [role="tab"][aria-selected="true"] { background:rgb(22 185 146 / .12); border-color:#13977b; color:var(--color-text); box-shadow:inset 0 -2px 0 #13977b; }
+.personnel-workflow-tabs [role="tab"]:focus-visible { outline:2px solid #13977b; outline-offset:2px; }
+.personnel-workspace { min-width:0; }
+.personnel-workflow-panel { min-width:0; scroll-margin-top:180px; }
+.personnel-workflow-panel > .panel,
+.personnel-workflow-panel > .organization-structure-grid { margin-top:0; }
+@media (max-width:1100px) {
+  .personnel-workflow-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .personnel-workflow-tabs [role="tab"] { min-height:66px; padding:10px; }
+}
+@media (max-width:520px) {
+  .personnel-workflow-tabs { gap:4px; padding:5px; margin-bottom:14px; }
+  .personnel-workflow-tabs [role="tab"] { gap:7px; min-height:58px; padding:8px; }
+  .personnel-workflow-tabs [role="tab"] svg { width:18px; height:18px; }
+  .personnel-workflow-tabs [role="tab"] strong { font-size:12px; }
+  .personnel-workflow-tabs [role="tab"] small { display:none; }
+}
+
+#view-organization .personnel-form-group { min-width:0; margin:18px 0; padding:14px 16px 16px; border:1px solid var(--color-border); border-radius:var(--radius-sm,10px); }
+#view-organization .personnel-form-group legend { padding:0 8px; color:var(--color-text); font-size:13px; font-weight:700; }
+#view-organization .personnel-form-group .form-grid { margin:0; }
+@media (max-width:520px) { #view-organization .personnel-form-group { padding:10px 12px 12px; } }
+
+/* Personnel workflow labels and themed settlement suggestions. */
+.personnel-workflow-tabs [role="tab"] { justify-content:center; text-align:center; }
+.personnel-workflow-tabs [role="tab"] span { text-align:center; }
+.settlement-picker { position:relative; display:block; min-width:0; }
+#settlementForm .settlement-picker input { width:100%; padding-inline-end:38px; }
+.settlement-picker-chevron { position:absolute; inset-inline-end:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; fill:none; stroke:var(--color-text-secondary); stroke-width:1.8; pointer-events:none; }
+.settlement-picker-menu { position:absolute; inset-inline:0; top:calc(100% + 6px); z-index:24; overflow:auto; overscroll-behavior:contain; padding:5px; border:1px solid var(--color-border); border-radius:var(--radius-sm,10px); background:var(--color-popover-opaque); box-shadow:var(--shadow-card); }
+.settlement-picker-menu[data-side="above"] { top:auto; bottom:calc(100% + 6px); }
+.settlement-picker-menu[hidden] { display:none !important; }
+.settlement-picker-menu [role="option"] { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; margin:0; padding:10px 12px; border:0; border-radius:8px; text-align:right; color:var(--color-text); background:transparent; cursor:pointer; font:inherit; }
+.settlement-picker-menu [role="option"] small { color:var(--color-text-secondary); font-size:11px; white-space:nowrap; }
+.settlement-picker-menu [role="option"] bdi { margin-inline-start:5px; }
+.settlement-picker-menu [data-picker-index]:hover,.settlement-picker-menu [aria-selected="true"] { background:var(--color-primary-soft); color:var(--color-primary-strong); }
+.settlement-picker-menu .settlement-picker-empty { justify-content:center; color:var(--color-text-secondary); cursor:default; font-size:12px; }
+@media (max-width:520px) {
+  .settlement-picker-menu [role="option"] { align-items:flex-start; flex-direction:column; gap:4px; padding:9px 10px; }
+}
+
+#settlementForm #settlementCode { padding-inline-start:38px; padding-inline-end:12px; }
+
+.settlement-picker-menu { scrollbar-width:thin; scrollbar-color:var(--color-text-secondary) transparent; }
+
+/* Align controls at the start of each grid row, independently of helper text. */
+#personCreateForm .form-grid { align-items:start; }
+#personCreateForm .form-grid > label { align-content:start; }
+#personCreateForm [name="baseSalary"] { font:inherit; text-align:right; }
+#newPersonSalaryWords { min-height:3.8em; margin-top:0; }
+
+#personCreateForm .form-grid > label, #personCreateForm input, #personCreateForm select { min-width:0; }
